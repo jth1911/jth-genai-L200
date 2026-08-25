@@ -1,9 +1,10 @@
 """Recipe dataset loader.
 
-The dataset is a small, curated, local JSON file (``data/recipes.json``). Keeping
-it local makes the whole data + tool layer deterministic and unit-testable with no
-API key or network — the project's value is in orchestration and memory, not the
-data source.
+The dataset is a small, curated JSON file shipped *inside* the package
+(``sous/resources/recipes.json``). Keeping it local makes the whole data + tool
+layer deterministic and unit-testable with no API key or network — the project's
+value is in orchestration and memory, not the data source. Shipping it as package
+data means it resolves identically whether installed as a wheel or run from source.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ import functools
 import json
 from dataclasses import dataclass, field
 from importlib import resources
-from pathlib import Path
 
 # Controlled vocabulary for recipe tags. Keeps the dataset consistent and lets the
 # search tool validate constraints against a known set.
@@ -60,17 +60,6 @@ class Recipe:
     allergens: list[str] = field(default_factory=list)
 
 
-def _dataset_path() -> Path:
-    """Locate ``data/recipes.json`` whether running from a source checkout or an
-    installed wheel."""
-    # Source checkout: repo_root/data/recipes.json (src/sous/data.py -> repo root)
-    checkout = Path(__file__).resolve().parents[2] / "data" / "recipes.json"
-    if checkout.exists():
-        return checkout
-    # Installed package: bundled alongside the package.
-    return Path(str(resources.files("sous").joinpath("data/recipes.json")))
-
-
 def _parse_recipe(raw: dict) -> Recipe:
     return Recipe(
         id=raw["id"],
@@ -86,8 +75,11 @@ def _parse_recipe(raw: dict) -> Recipe:
 
 @functools.lru_cache(maxsize=1)
 def load_recipes() -> list[Recipe]:
-    """Load and parse the recipe dataset. Cached — the dataset is static."""
-    path = _dataset_path()
-    with open(path, encoding="utf-8") as fh:
-        raw_recipes = json.load(fh)
+    """Load and parse the recipe dataset. Cached — the dataset is static.
+
+    Resolves the JSON via ``importlib.resources`` so it works identically from a
+    source checkout or an installed wheel.
+    """
+    source = resources.files("sous").joinpath("resources/recipes.json")
+    raw_recipes = json.loads(source.read_text(encoding="utf-8"))
     return [_parse_recipe(r) for r in raw_recipes]

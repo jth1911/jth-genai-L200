@@ -11,12 +11,14 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-# Install dependencies first (better layer caching).
+# Install dependencies first (better layer caching). The recipe dataset ships
+# inside the package (src/sous/resources), so no separate data copy is needed.
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
-COPY data ./data
 RUN uv sync --frozen --no-dev
 
-# ADK serves an OpenAPI/UI over HTTP. Cloud Run provides $PORT.
+# ADK serves an OpenAPI/UI over HTTP. Cloud Run provides $PORT. `src` is the
+# agents directory (the `sous` package is discovered as the agent) — matching the
+# `adk web src` command in the README.
 EXPOSE 8080
-CMD ["sh", "-c", "uv run adk api_server --host 0.0.0.0 --port ${PORT} src/sous"]
+CMD ["sh", "-c", "uv run adk api_server --host 0.0.0.0 --port ${PORT} src"]

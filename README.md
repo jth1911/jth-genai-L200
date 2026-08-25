@@ -59,14 +59,14 @@ GOOGLE_API_KEY=your-key
 ## Run
 
 ```bash
-# Interactive web UI (chat + trace view) — point it at the agent folder:
+# Interactive web UI (chat + trace view) — `src` is the agents directory:
 uv run adk web src
 
-# Or a terminal REPL:
-uv run adk run src/sous
+# Or an HTTP API server (this is exactly what the container serves):
+uv run adk api_server src
 
-# Or an HTTP API server (what the container serves):
-uv run adk api_server src/sous
+# Or a terminal REPL against the single agent:
+uv run adk run src/sous
 ```
 
 Try: *"Plan me 5 high-protein dinners for the week, no shellfish, around $60,
@@ -85,7 +85,7 @@ uv run ruff check src tests  # lint
 The eval set and thresholds live in [`src/sous/eval/`](src/sous/eval/):
 
 ```bash
-uv run adk eval sous src/sous/eval/pantry_smoke.evalset.json
+uv run adk eval src/sous src/sous/eval/pantry_smoke.evalset.json
 ```
 
 ## Observability
@@ -120,11 +120,11 @@ SOUS_SESSION_DB=postgresql://user:pass@host:5432/sous
 
 ```
 src/sous/
-  data.py        # recipe dataset loader (dataclasses)
-  tools.py       # function tools: search, nutrition, pantry, grocery list
-  agent.py       # agents + orchestration (root_agent)
-  runtime.py     # session service + Runner wiring
-  eval/          # ADK eval set + criteria
-data/recipes.json  # local, curated recipe/nutrition dataset
-tests/           # TDD suite (data, tools, agents, state, eval)
+  data.py                  # recipe dataset loader (dataclasses)
+  tools.py                 # function tools: search, nutrition, pantry, grocery list
+  agent.py                 # agents + orchestration (root_agent)
+  runtime.py               # session service + Runner wiring
+  resources/recipes.json   # local, curated recipe/nutrition dataset (shipped in-package)
+  eval/                    # ADK eval set + criteria
+tests/                     # TDD suite (data, tools, agents, state, eval)
 ```
