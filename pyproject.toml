@@ -1,0 +1,46 @@
+[project]
+name = "sous"
+version = "0.1.0"
+description = "Sous — a Meal & Nutrition Concierge multi-agent system built on Google's ADK"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+authors = [{ name = "James Harding" }]
+dependencies = [
+    "google-adk>=2.0.0",
+    "sqlalchemy>=2.0",
+    "aiosqlite>=0.20",
+    "greenlet>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sous"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "llm: tests that call a live LLM and require GOOGLE_API_KEY (deselect with '-m \"not llm\"')",
+]
+filterwarnings = [
+    # Classic workflow agents are intentionally used (see src/sous/agent.py).
+    "ignore:.*SequentialAgent is deprecated.*:DeprecationWarning",
+    "ignore:.*ParallelAgent is deprecated.*:DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

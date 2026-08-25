@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Virtual env
+.venv/
+
+# Environment / secrets
+.env
+
+# Session store
+*.sqlite
+*.sqlite3
+*.db
+
+# OS
+.DS_Store
