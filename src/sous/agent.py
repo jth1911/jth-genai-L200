@@ -40,7 +40,7 @@ from .tools import (
 
 # Gemini via Google AI Studio by default (see .env.example). Overridable so the
 # same code can run against Vertex or another model without edits.
-MODEL = os.environ.get("SOUS_MODEL", "gemini-2.0-flash")
+MODEL = os.environ.get("SOUS_MODEL", "gemini-3.6-flash")
 
 
 # --- specialist agents ---------------------------------------------------------
