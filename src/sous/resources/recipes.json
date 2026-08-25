@@ -1,0 +1,272 @@
+[
+  {
+    "id": "grilled-chicken-quinoa-bowl",
+    "name": "Grilled Chicken & Quinoa Bowl",
+    "tags": ["high-protein", "gluten-free", "meal-prep"],
+    "ingredients": [
+      {"item": "chicken breast", "qty": 200, "unit": "g"},
+      {"item": "quinoa", "qty": 80, "unit": "g"},
+      {"item": "broccoli", "qty": 150, "unit": "g"},
+      {"item": "olive oil", "qty": 1, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 520, "protein_g": 45, "carbs_g": 40, "fat_g": 18},
+    "cook_time_min": 25,
+    "est_cost_usd": 4.5,
+    "allergens": []
+  },
+  {
+    "id": "salmon-sweet-potato",
+    "name": "Baked Salmon with Sweet Potato",
+    "tags": ["high-protein", "pescatarian", "gluten-free", "dairy-free"],
+    "ingredients": [
+      {"item": "salmon fillet", "qty": 180, "unit": "g"},
+      {"item": "sweet potato", "qty": 200, "unit": "g"},
+      {"item": "asparagus", "qty": 100, "unit": "g"},
+      {"item": "lemon", "qty": 0.5, "unit": "unit"}
+    ],
+    "macros": {"kcal": 560, "protein_g": 38, "carbs_g": 42, "fat_g": 24},
+    "cook_time_min": 30,
+    "est_cost_usd": 6.0,
+    "allergens": ["fish"]
+  },
+  {
+    "id": "beef-stirfry-rice",
+    "name": "Beef & Veggie Stir-Fry with Rice",
+    "tags": ["high-protein", "dairy-free"],
+    "ingredients": [
+      {"item": "beef strips", "qty": 200, "unit": "g"},
+      {"item": "white rice", "qty": 90, "unit": "g"},
+      {"item": "bell pepper", "qty": 1, "unit": "unit"},
+      {"item": "soy sauce", "qty": 2, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 610, "protein_g": 42, "carbs_g": 55, "fat_g": 20},
+    "cook_time_min": 20,
+    "est_cost_usd": 5.5,
+    "allergens": ["soy", "gluten"]
+  },
+  {
+    "id": "lentil-curry",
+    "name": "Red Lentil Coconut Curry",
+    "tags": ["vegetarian", "vegan", "gluten-free", "dairy-free", "budget", "meal-prep"],
+    "ingredients": [
+      {"item": "red lentils", "qty": 120, "unit": "g"},
+      {"item": "coconut milk", "qty": 200, "unit": "ml"},
+      {"item": "onion", "qty": 1, "unit": "unit"},
+      {"item": "curry paste", "qty": 2, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 480, "protein_g": 20, "carbs_g": 58, "fat_g": 18},
+    "cook_time_min": 30,
+    "est_cost_usd": 2.5,
+    "allergens": []
+  },
+  {
+    "id": "chickpea-buddha-bowl",
+    "name": "Roasted Chickpea Buddha Bowl",
+    "tags": ["vegetarian", "vegan", "high-protein", "budget", "meal-prep"],
+    "ingredients": [
+      {"item": "chickpeas", "qty": 150, "unit": "g"},
+      {"item": "brown rice", "qty": 80, "unit": "g"},
+      {"item": "kale", "qty": 100, "unit": "g"},
+      {"item": "tahini", "qty": 1, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 500, "protein_g": 22, "carbs_g": 62, "fat_g": 16},
+    "cook_time_min": 25,
+    "est_cost_usd": 3.0,
+    "allergens": ["sesame"]
+  },
+  {
+    "id": "turkey-lettuce-wraps",
+    "name": "Turkey Lettuce Wraps",
+    "tags": ["high-protein", "low-carb", "keto", "gluten-free", "dairy-free", "quick"],
+    "ingredients": [
+      {"item": "ground turkey", "qty": 200, "unit": "g"},
+      {"item": "lettuce", "qty": 1, "unit": "unit"},
+      {"item": "carrot", "qty": 1, "unit": "unit"},
+      {"item": "soy sauce", "qty": 1, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 380, "protein_g": 40, "carbs_g": 12, "fat_g": 18},
+    "cook_time_min": 18,
+    "est_cost_usd": 4.0,
+    "allergens": ["soy"]
+  },
+  {
+    "id": "shrimp-zoodles",
+    "name": "Garlic Shrimp Zucchini Noodles",
+    "tags": ["high-protein", "low-carb", "keto", "pescatarian", "gluten-free", "quick"],
+    "ingredients": [
+      {"item": "shrimp", "qty": 180, "unit": "g"},
+      {"item": "zucchini", "qty": 2, "unit": "unit"},
+      {"item": "garlic", "qty": 3, "unit": "clove"},
+      {"item": "olive oil", "qty": 1, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 340, "protein_g": 36, "carbs_g": 14, "fat_g": 16},
+    "cook_time_min": 15,
+    "est_cost_usd": 6.5,
+    "allergens": ["shellfish"]
+  },
+  {
+    "id": "egg-veggie-frittata",
+    "name": "Veggie Frittata",
+    "tags": ["vegetarian", "high-protein", "low-carb", "keto", "gluten-free", "quick"],
+    "ingredients": [
+      {"item": "eggs", "qty": 4, "unit": "unit"},
+      {"item": "spinach", "qty": 100, "unit": "g"},
+      {"item": "feta cheese", "qty": 50, "unit": "g"},
+      {"item": "cherry tomatoes", "qty": 100, "unit": "g"}
+    ],
+    "macros": {"kcal": 420, "protein_g": 28, "carbs_g": 10, "fat_g": 30},
+    "cook_time_min": 20,
+    "est_cost_usd": 3.5,
+    "allergens": ["egg", "dairy"]
+  },
+  {
+    "id": "tofu-pad-thai",
+    "name": "Tofu Pad Thai",
+    "tags": ["vegetarian", "vegan", "dairy-free"],
+    "ingredients": [
+      {"item": "firm tofu", "qty": 200, "unit": "g"},
+      {"item": "rice noodles", "qty": 100, "unit": "g"},
+      {"item": "peanuts", "qty": 30, "unit": "g"},
+      {"item": "bean sprouts", "qty": 80, "unit": "g"}
+    ],
+    "macros": {"kcal": 540, "protein_g": 24, "carbs_g": 68, "fat_g": 20},
+    "cook_time_min": 25,
+    "est_cost_usd": 3.5,
+    "allergens": ["soy", "peanut"]
+  },
+  {
+    "id": "black-bean-tacos",
+    "name": "Black Bean Tacos",
+    "tags": ["vegetarian", "vegan", "budget", "quick"],
+    "ingredients": [
+      {"item": "black beans", "qty": 150, "unit": "g"},
+      {"item": "corn tortillas", "qty": 3, "unit": "unit"},
+      {"item": "avocado", "qty": 1, "unit": "unit"},
+      {"item": "salsa", "qty": 3, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 470, "protein_g": 16, "carbs_g": 60, "fat_g": 18},
+    "cook_time_min": 15,
+    "est_cost_usd": 2.5,
+    "allergens": []
+  },
+  {
+    "id": "chicken-caesar-no-crouton",
+    "name": "Chicken Caesar Salad",
+    "tags": ["high-protein", "low-carb", "gluten-free"],
+    "ingredients": [
+      {"item": "chicken breast", "qty": 180, "unit": "g"},
+      {"item": "romaine lettuce", "qty": 1, "unit": "unit"},
+      {"item": "parmesan cheese", "qty": 30, "unit": "g"},
+      {"item": "caesar dressing", "qty": 2, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 440, "protein_g": 42, "carbs_g": 8, "fat_g": 26},
+    "cook_time_min": 20,
+    "est_cost_usd": 4.5,
+    "allergens": ["dairy", "egg"]
+  },
+  {
+    "id": "pork-veg-noodles",
+    "name": "Pork & Vegetable Noodles",
+    "tags": ["high-protein", "dairy-free"],
+    "ingredients": [
+      {"item": "pork mince", "qty": 200, "unit": "g"},
+      {"item": "egg noodles", "qty": 100, "unit": "g"},
+      {"item": "pak choi", "qty": 100, "unit": "g"},
+      {"item": "hoisin sauce", "qty": 2, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 620, "protein_g": 38, "carbs_g": 58, "fat_g": 24},
+    "cook_time_min": 25,
+    "est_cost_usd": 4.0,
+    "allergens": ["gluten", "soy", "egg"]
+  },
+  {
+    "id": "cod-tomato-stew",
+    "name": "Mediterranean Cod & Tomato Stew",
+    "tags": ["high-protein", "pescatarian", "low-carb", "gluten-free", "dairy-free"],
+    "ingredients": [
+      {"item": "cod fillet", "qty": 200, "unit": "g"},
+      {"item": "chopped tomatoes", "qty": 200, "unit": "g"},
+      {"item": "olives", "qty": 40, "unit": "g"},
+      {"item": "garlic", "qty": 2, "unit": "clove"}
+    ],
+    "macros": {"kcal": 360, "protein_g": 40, "carbs_g": 14, "fat_g": 15},
+    "cook_time_min": 30,
+    "est_cost_usd": 5.5,
+    "allergens": ["fish"]
+  },
+  {
+    "id": "veggie-chili",
+    "name": "Three-Bean Veggie Chili",
+    "tags": ["vegetarian", "vegan", "gluten-free", "dairy-free", "budget", "meal-prep", "high-protein"],
+    "ingredients": [
+      {"item": "kidney beans", "qty": 100, "unit": "g"},
+      {"item": "black beans", "qty": 100, "unit": "g"},
+      {"item": "cannellini beans", "qty": 100, "unit": "g"},
+      {"item": "chopped tomatoes", "qty": 200, "unit": "g"}
+    ],
+    "macros": {"kcal": 450, "protein_g": 24, "carbs_g": 70, "fat_g": 6},
+    "cook_time_min": 35,
+    "est_cost_usd": 2.5,
+    "allergens": []
+  },
+  {
+    "id": "steak-green-salad",
+    "name": "Seared Steak with Green Salad",
+    "tags": ["high-protein", "low-carb", "keto", "gluten-free", "dairy-free"],
+    "ingredients": [
+      {"item": "sirloin steak", "qty": 200, "unit": "g"},
+      {"item": "mixed greens", "qty": 100, "unit": "g"},
+      {"item": "cherry tomatoes", "qty": 80, "unit": "g"},
+      {"item": "olive oil", "qty": 1, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 500, "protein_g": 44, "carbs_g": 8, "fat_g": 32},
+    "cook_time_min": 18,
+    "est_cost_usd": 7.0,
+    "allergens": []
+  },
+  {
+    "id": "mushroom-risotto",
+    "name": "Mushroom Risotto",
+    "tags": ["vegetarian", "gluten-free"],
+    "ingredients": [
+      {"item": "arborio rice", "qty": 100, "unit": "g"},
+      {"item": "mushrooms", "qty": 150, "unit": "g"},
+      {"item": "parmesan cheese", "qty": 40, "unit": "g"},
+      {"item": "vegetable stock", "qty": 400, "unit": "ml"}
+    ],
+    "macros": {"kcal": 520, "protein_g": 14, "carbs_g": 78, "fat_g": 16},
+    "cook_time_min": 35,
+    "est_cost_usd": 3.0,
+    "allergens": ["dairy"]
+  },
+  {
+    "id": "chicken-fajita-bowl",
+    "name": "Chicken Fajita Bowl",
+    "tags": ["high-protein", "gluten-free", "dairy-free", "meal-prep"],
+    "ingredients": [
+      {"item": "chicken thigh", "qty": 200, "unit": "g"},
+      {"item": "brown rice", "qty": 80, "unit": "g"},
+      {"item": "bell pepper", "qty": 1, "unit": "unit"},
+      {"item": "onion", "qty": 0.5, "unit": "unit"}
+    ],
+    "macros": {"kcal": 560, "protein_g": 40, "carbs_g": 50, "fat_g": 20},
+    "cook_time_min": 25,
+    "est_cost_usd": 4.0,
+    "allergens": []
+  },
+  {
+    "id": "tuna-white-bean-salad",
+    "name": "Tuna & White Bean Salad",
+    "tags": ["high-protein", "pescatarian", "gluten-free", "dairy-free", "budget", "quick"],
+    "ingredients": [
+      {"item": "canned tuna", "qty": 150, "unit": "g"},
+      {"item": "cannellini beans", "qty": 120, "unit": "g"},
+      {"item": "red onion", "qty": 0.5, "unit": "unit"},
+      {"item": "olive oil", "qty": 1, "unit": "tbsp"}
+    ],
+    "macros": {"kcal": 400, "protein_g": 38, "carbs_g": 34, "fat_g": 12},
+    "cook_time_min": 10,
+    "est_cost_usd": 3.0,
+    "allergens": ["fish"]
+  }
+]
