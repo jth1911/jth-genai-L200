@@ -1,0 +1,104 @@
+{
+  "eval_set_id": "sous_pantry_smoke",
+  "name": "Sous pantry smoke tests",
+  "description": "Deterministic coordinator-level pantry interactions used to smoke-test tool trajectory and response quality. Full meal-planning is exercised interactively via `adk web`.",
+  "eval_cases": [
+    {
+      "eval_id": "add_to_pantry",
+      "conversation": [
+        {
+          "invocation_id": "",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Please add chicken breast and brown rice to my pantry."
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Done — I've added chicken breast and brown rice to your pantry."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "args": {
+                  "items": [
+                    "chicken breast",
+                    "brown rice"
+                  ],
+                  "action": "add"
+                },
+                "name": "update_pantry"
+              }
+            ],
+            "tool_responses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 0.0
+        }
+      ],
+      "session_input": {
+        "app_name": "sous",
+        "user_id": "demo",
+        "state": {}
+      },
+      "creation_timestamp": 0.0,
+      "final_session_state": {}
+    },
+    {
+      "eval_id": "read_pantry",
+      "conversation": [
+        {
+          "invocation_id": "",
+          "user_content": {
+            "parts": [
+              {
+                "text": "What do I currently have in my pantry?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "You currently have rice, eggs and olive oil in your pantry."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "args": {},
+                "name": "read_pantry"
+              }
+            ],
+            "tool_responses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 0.0
+        }
+      ],
+      "session_input": {
+        "app_name": "sous",
+        "user_id": "demo",
+        "state": {
+          "user:pantry": [
+            "rice",
+            "eggs",
+            "olive oil"
+          ]
+        }
+      },
+      "creation_timestamp": 0.0,
+      "final_session_state": {}
+    }
+  ],
+  "creation_timestamp": 0.0
+}

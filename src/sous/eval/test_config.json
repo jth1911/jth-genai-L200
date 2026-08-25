@@ -1,0 +1,12 @@
+{
+  "criteria": {
+    "tool_trajectory_avg_score": {
+      "threshold": 0.5,
+      "include_intermediate_responses_in_final": false
+    },
+    "response_match_score": {
+      "threshold": 0.2,
+      "include_intermediate_responses_in_final": false
+    }
+  }
+}

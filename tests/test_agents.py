@@ -34,6 +34,11 @@ def test_coordinator_delegates_to_plan_workflow():
     assert plan_workflow in root_agent.sub_agents
 
 
+def test_coordinator_handles_pantry_directly():
+    # Quick memory updates don't need the full planning workflow.
+    assert set(_tool_names(root_agent)) >= {"read_pantry", "update_pantry"}
+
+
 def test_plan_workflow_is_sequential():
     assert isinstance(plan_workflow, SequentialAgent)
     # gather -> recipe -> grocery
