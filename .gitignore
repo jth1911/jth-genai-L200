@@ -18,5 +18,8 @@ dist/
 *.sqlite3
 *.db
 
+# Docs build
+site/
+
 # OS
 .DS_Store
