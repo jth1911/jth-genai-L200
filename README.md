@@ -108,8 +108,13 @@ uv run adk deploy cloud_run src/sous
 ```
 
 For persistent memory in production, set `SOUS_SESSION_DB` to a database URL
-(e.g. a Cloud SQL / Postgres connection string) instead of the default in-memory
-store.
+instead of the default in-memory store. SQLite and PostgreSQL (e.g. Cloud SQL)
+are supported out of the box — plain `sqlite:///...` and `postgresql://...` URLs
+are automatically upgraded to their async drivers (`aiosqlite` / `asyncpg`):
+
+```
+SOUS_SESSION_DB=postgresql://user:pass@host:5432/sous
+```
 
 ## Project layout
 

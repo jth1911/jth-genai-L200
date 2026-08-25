@@ -8,7 +8,7 @@ import pytest
 from google.adk.events import Event, EventActions
 from google.adk.sessions import DatabaseSessionService
 
-from sous.runtime import APP_NAME, build_runner, get_session_service
+from sous.runtime import APP_NAME, _async_db_url, build_runner, get_session_service
 from sous.tools import PANTRY_KEY
 
 USER = "test-user"
@@ -69,3 +69,21 @@ def test_build_runner_wires_agent_and_app(db_service):
     runner = build_runner(session_service=db_service)
     assert runner.app_name == APP_NAME
     assert runner.agent.name == "sous_coordinator"
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        # Bare schemes get an async driver injected.
+        ("sqlite:///./sous.sqlite", "sqlite+aiosqlite:///./sous.sqlite"),
+        ("postgresql://u:p@host/db", "postgresql+asyncpg://u:p@host/db"),
+        ("postgres://u:p@host/db", "postgresql+asyncpg://u:p@host/db"),
+        # An explicit driver is respected, not double-rewritten.
+        ("sqlite+aiosqlite:///./x.sqlite", "sqlite+aiosqlite:///./x.sqlite"),
+        ("postgresql+asyncpg://u@host/db", "postgresql+asyncpg://u@host/db"),
+        # Unknown scheme is passed through untouched.
+        ("mysql://u@host/db", "mysql://u@host/db"),
+    ],
+)
+def test_async_db_url_normalisation(url, expected):
+    assert _async_db_url(url) == expected
