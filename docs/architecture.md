@@ -48,10 +48,33 @@ recipe agent reads `{nutrition_targets?}` and `{pantry_summary?}`). This is the
 "context as source code" pattern — each agent sees only what it needs.
 
 ### Memory
-The pantry and profile live under `user:`-scoped state keys (e.g. `user:pantry`).
-With the SQLite-backed `DatabaseSessionService`, `user:` state survives across
-separate sessions for the same user, while unprefixed state stays session-local.
-See `tests/test_state.py` for the proof.
+Memory works at three layers, all wired on the coordinator (`src/sous/memory.py`):
+
+1. **Durable structured state.** The pantry and profile live under `user:`-scoped
+   state keys (e.g. `user:pantry`). With the SQLite-backed `DatabaseSessionService`,
+   `user:` state survives across separate sessions for the same user, while
+   unprefixed state stays session-local. See `tests/test_state.py` for the proof.
+
+2. **History compaction** (`before_model_callback` → `compact_history`). Before each
+   coordinator model call, the conversation is trimmed to a sliding window of the
+   last `SOUS_HISTORY_WINDOW` turns (default 12); when a summariser is configured, the
+   dropped prefix is folded into a running summary stored under a *session-scoped*
+   key (`history_summary`) and prepended as one synthetic turn. This bounds the token
+   footprint of long chats. It only rewrites `llm_request.contents` — the transient
+   conversation — so durable `user:` state is never affected. The trimmed window is
+   sanitised to a boundary the model accepts: a leading orphaned `function_response`
+   (whose `function_call` was dropped) is removed, and a pure trim opens on a `user`
+   turn. The summariser is injectable, so the trigger/threshold logic is unit-tested
+   without a live LLM (`tests/test_compaction.py`).
+
+3. **Long-term memory** (`after_agent_callback` → `remember_session`). After the
+   user-facing reply is produced, the finished turn is ingested into a `MemoryService`
+   via `await callback_context.add_session_to_memory()` — off the response critical
+   path. The coordinator recalls those facts in later sessions through the ADK
+   `load_memory` tool. `get_memory_service()` in `runtime.py` mirrors the session-service
+   factory: an `InMemoryMemoryService` (keyword search) by default, or the managed
+   `VertexAiMemoryBankService` (semantic search) when `SOUS_MEMORY_BACKEND=vertex`.
+   Cross-session recall is proven in `tests/test_memory.py`.
 
 ### Why the classic workflow agents
 ADK 2.x flags `SequentialAgent`/`ParallelAgent` as deprecated in favour of the new
@@ -71,6 +94,7 @@ independently of the model.
 | `compute_nutrition_targets` | nutrition_agent | Daily kcal + macro targets for a goal |
 | `read_pantry` / `update_pantry` | coordinator, pantry_agent | Read/mutate `user:pantry` |
 | `build_grocery_list` | grocery_agent | Consolidate ingredients, subtract pantry |
+| `load_memory` (ADK built-in) | coordinator | Recall facts from past sessions before re-asking |
 
 ## Schemas & validation
 

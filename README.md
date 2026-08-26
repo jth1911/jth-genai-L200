@@ -37,7 +37,19 @@ Two orchestration styles in one system:
 
 **Memory:** the pantry and dietary profile are stored under `user:`-scoped session
 state, so with the SQLite-backed `DatabaseSessionService` they persist across
-separate conversations.
+separate conversations. On top of that, the coordinator manages context and
+long-term memory with two ADK-native callbacks:
+
+- **History compaction** (`before_model_callback`) trims the conversation to a
+  sliding window (`SOUS_HISTORY_WINDOW`, default 12 turns) before each model call,
+  optionally summarising the dropped prefix into a running summary — bounding the
+  token footprint of long chats without touching durable `user:`-scoped state.
+- **Long-term memory** (`after_agent_callback`) ingests each finished turn into a
+  `MemoryService` after the reply is sent, so facts the user mentioned in passing
+  ("allergic to shellfish", "loved last week's stir-fry") are recallable in later
+  sessions via the coordinator's `load_memory` tool. Defaults to an in-memory
+  keyword store; set `SOUS_MEMORY_BACKEND=vertex` for the managed Vertex AI Memory
+  Bank with semantic search.
 
 **Validation:** tool inputs and outputs, agent stage outputs, and the recipe
 dataset are all enforced with strict Pydantic schemas (`src/sous/schemas.py`) —
@@ -121,6 +133,17 @@ are automatically upgraded to their async drivers (`aiosqlite` / `asyncpg`):
 SOUS_SESSION_DB=postgresql://user:pass@host:5432/sous
 ```
 
+For long-term memory (facts recalled across sessions), set `SOUS_MEMORY_BACKEND=vertex`
+and provide the Vertex AI Memory Bank settings to swap the default in-memory store for
+managed, semantically searchable memory:
+
+```
+SOUS_MEMORY_BACKEND=vertex
+SOUS_VERTEX_PROJECT=my-project
+SOUS_VERTEX_LOCATION=us-central1
+SOUS_VERTEX_AGENT_ENGINE_ID=1234567890
+```
+
 ## Project layout
 
 ```
@@ -129,7 +152,8 @@ src/sous/
   schemas.py               # strict Pydantic schemas for tool + agent I/O
   tools.py                 # function tools: search, nutrition, pantry, grocery list
   agent.py                 # agents + orchestration (root_agent)
-  runtime.py               # session service + Runner wiring
+  memory.py                # history compaction + long-term memory callbacks
+  runtime.py               # session + memory services + Runner wiring
   resources/recipes.json   # local, curated recipe/nutrition dataset (shipped in-package)
   eval/                    # ADK eval set + criteria
 tests/                     # TDD suite (data, tools, agents, state, eval)

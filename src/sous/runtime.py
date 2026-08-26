@@ -9,6 +9,11 @@ from __future__ import annotations
 
 import os
 
+from google.adk.memory import (
+    BaseMemoryService,
+    InMemoryMemoryService,
+    VertexAiMemoryBankService,
+)
 from google.adk.runners import Runner
 from google.adk.sessions import (
     BaseSessionService,
@@ -58,10 +63,33 @@ def get_session_service(db_url: str | None = None) -> BaseSessionService:
     return InMemorySessionService()
 
 
-def build_runner(session_service: BaseSessionService | None = None) -> Runner:
+def get_memory_service(backend: str | None = None) -> BaseMemoryService:
+    """Return a long-term memory service.
+
+    Mirrors :func:`get_session_service`'s env-driven pattern. Defaults to the
+    in-memory (keyword-search) service — ideal for tests and local runs. Set
+    ``SOUS_MEMORY_BACKEND=vertex`` (plus ``SOUS_VERTEX_PROJECT`` /
+    ``SOUS_VERTEX_LOCATION`` / ``SOUS_VERTEX_AGENT_ENGINE_ID``) to use the managed
+    Vertex AI Memory Bank, which extracts and semantically searches memories.
+    """
+    backend = (backend or os.environ.get("SOUS_MEMORY_BACKEND", "")).lower()
+    if backend == "vertex":
+        return VertexAiMemoryBankService(
+            project=os.environ.get("SOUS_VERTEX_PROJECT"),
+            location=os.environ.get("SOUS_VERTEX_LOCATION"),
+            agent_engine_id=os.environ.get("SOUS_VERTEX_AGENT_ENGINE_ID"),
+        )
+    return InMemoryMemoryService()
+
+
+def build_runner(
+    session_service: BaseSessionService | None = None,
+    memory_service: BaseMemoryService | None = None,
+) -> Runner:
     """Build a Runner for the Sous coordinator agent."""
     return Runner(
         agent=root_agent,
         app_name=APP_NAME,
         session_service=session_service or get_session_service(),
+        memory_service=memory_service or get_memory_service(),
     )

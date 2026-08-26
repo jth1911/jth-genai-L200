@@ -40,6 +40,20 @@ def test_coordinator_handles_pantry_directly():
     assert set(_tool_names(root_agent)) >= {"read_pantry", "update_pantry"}
 
 
+def test_coordinator_can_recall_long_term_memory():
+    # The coordinator can search past conversations for remembered preferences.
+    assert "load_memory" in _tool_names(root_agent)
+
+
+def test_coordinator_has_context_and_memory_callbacks():
+    # before_model compaction bounds the token footprint; after_agent ingestion
+    # grows long-term memory (issue #5).
+    from sous.memory import compact_history, remember_session
+
+    assert root_agent.before_model_callback is compact_history
+    assert root_agent.after_agent_callback is remember_session
+
+
 def test_plan_workflow_is_sequential():
     assert isinstance(plan_workflow, SequentialAgent)
     # gather -> recipe -> grocery -> presenter

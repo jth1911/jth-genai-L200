@@ -30,7 +30,9 @@ from __future__ import annotations
 import os
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
+from google.adk.tools import load_memory
 
+from .memory import compact_history, remember_session
 from .schemas import GroceryPlan, RecipePlan
 from .tools import (
     build_grocery_list,
@@ -160,11 +162,17 @@ root_agent = LlmAgent(
         "For a request to plan meals or build a grocery list, delegate to "
         "`plan_workflow`, which will compute targets, check the pantry, choose recipes "
         "and produce a shopping list. For simple pantry updates or questions about what "
-        "the user already has, use `read_pantry`/`update_pantry` directly. Always "
-        "confirm the user's goal, constraints (allergies, budget, cook time) and how "
-        "many meals they want before planning, using remembered preferences when "
-        "available."
+        "the user already has, use `read_pantry`/`update_pantry` directly. Before asking "
+        "the user to repeat preferences or constraints (allergies, dislikes, budget, cook "
+        "time, past favourites), call `load_memory` to recall what they told you in earlier "
+        "conversations. Always confirm the user's goal, constraints and how many meals they "
+        "want before planning, using remembered preferences when available."
     ),
-    tools=[read_pantry, update_pantry],
+    tools=[read_pantry, update_pantry, load_memory],
     sub_agents=[plan_workflow],
+    # Context & memory (issue #5): trim history before each model call to bound the
+    # token footprint, and ingest each finished turn into long-term memory so facts
+    # the user revealed are recallable in future sessions.
+    before_model_callback=compact_history,
+    after_agent_callback=remember_session,
 )
