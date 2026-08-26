@@ -13,29 +13,57 @@ Stateful tools (pantry) take an ADK ``ToolContext`` and read/write
 from __future__ import annotations
 
 from google.adk.tools.tool_context import ToolContext
+from pydantic import BaseModel, ValidationError
 
 from .data import Recipe, load_recipes
+from .schemas import (
+    ErrorResult,
+    Goal,
+    GroceryInput,
+    GroceryItem,
+    GroceryList,
+    NutritionInput,
+    NutritionTargets,
+    PantryAction,
+    PantryState,
+    PantryUpdateInput,
+    RecipeSummary,
+    SearchRecipesInput,
+    SearchRecipesResult,
+)
 
 PANTRY_KEY = "user:pantry"
+
+
+def _validate(model_cls: type[BaseModel], **kwargs):
+    """Validate tool arguments against a schema.
+
+    Returns ``(model, None)`` on success or ``(None, error_dict)`` on failure —
+    the error dict is the tools' guided ``{"status": "error", ...}`` shape, so a
+    validation failure reaches the LLM as an actionable message, never a traceback.
+    """
+    try:
+        return model_cls(**kwargs), None
+    except ValidationError as exc:
+        details = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc']) or 'input'}: {err['msg']}"
+            for err in exc.errors()
+        )
+        return None, ErrorResult(error_message=f"Invalid arguments — {details}").model_dump()
 
 # --- recipe search -------------------------------------------------------------
 
 
-def _recipe_summary(r: Recipe) -> dict:
-    return {
-        "id": r.id,
-        "name": r.name,
-        "tags": list(r.tags),
-        "allergens": list(r.allergens),
-        "macros": {
-            "kcal": r.macros.kcal,
-            "protein_g": r.macros.protein_g,
-            "carbs_g": r.macros.carbs_g,
-            "fat_g": r.macros.fat_g,
-        },
-        "cook_time_min": r.cook_time_min,
-        "est_cost_usd": r.est_cost_usd,
-    }
+def _recipe_summary(r: Recipe) -> RecipeSummary:
+    return RecipeSummary(
+        id=r.id,
+        name=r.name,
+        tags=list(r.tags),
+        allergens=list(r.allergens),
+        macros=r.macros.model_dump(),
+        cook_time_min=r.cook_time_min,
+        est_cost_usd=r.est_cost_usd,
+    )
 
 
 def search_recipes(
@@ -56,6 +84,18 @@ def search_recipes(
     Returns:
         dict: {"status": "success", "recipes": [<recipe summary>, ...]}.
     """
+    args, err = _validate(
+        SearchRecipesInput,
+        tags=tags,
+        exclude_allergens=exclude_allergens,
+        max_cost_usd=max_cost_usd,
+        max_cook_time_min=max_cook_time_min,
+    )
+    if err:
+        return err
+    tags, exclude_allergens = args.tags, args.exclude_allergens
+    max_cost_usd, max_cook_time_min = args.max_cost_usd, args.max_cook_time_min
+
     tagset = {t.lower() for t in (tags or [])}
     allergen_block = {a.lower() for a in (exclude_allergens or [])}
 
@@ -73,7 +113,7 @@ def search_recipes(
             continue
         results.append(_recipe_summary(r))
 
-    return {"status": "success", "recipes": results, "count": len(results)}
+    return SearchRecipesResult(recipes=results, count=len(results)).model_dump()
 
 
 # --- nutrition targets ---------------------------------------------------------
@@ -82,7 +122,7 @@ _GOAL_ADJUST = {"lose": -400, "maintain": 0, "gain": 400}
 
 
 def compute_nutrition_targets(
-    goal: str,
+    goal: Goal,
     weight_kg: float,
     meals_per_day: int = 3,
 ) -> dict:
@@ -93,34 +133,32 @@ def compute_nutrition_targets(
 
     Args:
         goal: One of "lose", "maintain", or "gain".
-        weight_kg: Body weight in kilograms.
-        meals_per_day: Number of meals to divide the daily target across.
+        weight_kg: Body weight in kilograms (0 < weight_kg <= 500).
+        meals_per_day: Number of meals to divide the daily target across (1-6).
 
     Returns:
         dict: targets including daily_kcal and per-macro grams, or an error.
     """
-    if goal not in _GOAL_ADJUST:
-        return {
-            "status": "error",
-            "error_message": f"Unknown goal {goal!r}; expected one of {list(_GOAL_ADJUST)}.",
-        }
-    if weight_kg <= 0 or meals_per_day <= 0:
-        return {"status": "error", "error_message": "weight_kg and meals_per_day must be > 0."}
+    args, err = _validate(
+        NutritionInput, goal=goal, weight_kg=weight_kg, meals_per_day=meals_per_day
+    )
+    if err:
+        return err
+    goal, weight_kg, meals_per_day = args.goal, args.weight_kg, args.meals_per_day
 
     daily_kcal = round(weight_kg * 30 + _GOAL_ADJUST[goal])
     protein_g = round(daily_kcal * 0.30 / 4)
     carbs_g = round(daily_kcal * 0.40 / 4)
     fat_g = round(daily_kcal * 0.30 / 9)
 
-    return {
-        "status": "success",
-        "goal": goal,
-        "daily_kcal": daily_kcal,
-        "protein_g": protein_g,
-        "carbs_g": carbs_g,
-        "fat_g": fat_g,
-        "per_meal_kcal": round(daily_kcal / meals_per_day),
-    }
+    return NutritionTargets(
+        goal=goal,
+        daily_kcal=daily_kcal,
+        protein_g=protein_g,
+        carbs_g=carbs_g,
+        fat_g=fat_g,
+        per_meal_kcal=round(daily_kcal / meals_per_day),
+    ).model_dump()
 
 
 # --- pantry state --------------------------------------------------------------
@@ -142,10 +180,10 @@ def read_pantry(tool_context: ToolContext) -> dict:
         dict: {"status": "success", "pantry": ["rice", "eggs", ...]}.
     """
     pantry = list(tool_context.state.get(PANTRY_KEY, []))
-    return {"status": "success", "pantry": pantry}
+    return PantryState(pantry=pantry).model_dump()
 
 
-def update_pantry(items: list[str], action: str, tool_context: ToolContext) -> dict:
+def update_pantry(items: list[str], action: PantryAction, tool_context: ToolContext) -> dict:
     """Add or remove items from the user's pantry (persists across sessions).
 
     Args:
@@ -156,11 +194,10 @@ def update_pantry(items: list[str], action: str, tool_context: ToolContext) -> d
     Returns:
         dict: {"status": "success", "pantry": [...]} or an error.
     """
-    if action not in ("add", "remove"):
-        return {
-            "status": "error",
-            "error_message": f"Unknown action {action!r}; expected 'add' or 'remove'.",
-        }
+    args, err = _validate(PantryUpdateInput, items=items, action=action)
+    if err:
+        return err
+    items, action = args.items, args.action
 
     current = _normalize(list(tool_context.state.get(PANTRY_KEY, [])))
     incoming = _normalize(items)
@@ -171,7 +208,7 @@ def update_pantry(items: list[str], action: str, tool_context: ToolContext) -> d
         updated = [i for i in current if i not in incoming]
 
     tool_context.state[PANTRY_KEY] = updated
-    return {"status": "success", "pantry": updated}
+    return PantryState(pantry=updated).model_dump()
 
 
 # --- grocery list --------------------------------------------------------------
@@ -191,6 +228,11 @@ def build_grocery_list(recipe_ids: list[str], pantry: list[str]) -> dict:
         dict: {"status": "success", "grocery_list": [{"item","qty","unit"}, ...]}
             or an error listing unknown recipe ids.
     """
+    args, err = _validate(GroceryInput, recipe_ids=recipe_ids, pantry=pantry)
+    if err:
+        return err
+    recipe_ids, pantry = args.recipe_ids, args.pantry
+
     by_id = {r.id: r for r in load_recipes()}
     unknown = [rid for rid in recipe_ids if rid not in by_id]
     if unknown:
@@ -211,7 +253,7 @@ def build_grocery_list(recipe_ids: list[str], pantry: list[str]) -> dict:
             aggregated[key] = aggregated.get(key, 0) + ing.qty
 
     grocery_list = [
-        {"item": item, "qty": round(qty, 2), "unit": unit}
+        GroceryItem(item=item, qty=round(qty, 2), unit=unit)
         for (item, unit), qty in sorted(aggregated.items())
     ]
-    return {"status": "success", "grocery_list": grocery_list, "count": len(grocery_list)}
+    return GroceryList(grocery_list=grocery_list, count=len(grocery_list)).model_dump()

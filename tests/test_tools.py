@@ -1,6 +1,15 @@
 """Phase 2 — tool tests (pure logic, no LLM, no network)."""
 
+import pytest
+
 from conftest import FakeToolContext
+from sous.schemas import (
+    ErrorResult,
+    GroceryList,
+    NutritionTargets,
+    PantryState,
+    SearchRecipesResult,
+)
 from sous.tools import (
     build_grocery_list,
     compute_nutrition_targets,
@@ -160,3 +169,78 @@ def test_grocery_list_subtracts_pantry_items():
 def test_grocery_list_unknown_recipe_reports_error():
     res = build_grocery_list(recipe_ids=["does-not-exist"], pantry=[])
     assert res["status"] == "error"
+
+
+# --- strict input validation (guided errors, never exceptions) -----------------
+
+
+def test_search_rejects_non_positive_cost():
+    res = search_recipes(max_cost_usd=0)
+    assert res["status"] == "error"
+    assert "error_message" in res
+
+
+def test_search_rejects_non_positive_cook_time():
+    res = search_recipes(max_cook_time_min=-5)
+    assert res["status"] == "error"
+
+
+def test_nutrition_rejects_non_positive_weight():
+    res = compute_nutrition_targets(goal="maintain", weight_kg=0)
+    assert res["status"] == "error"
+    assert "error_message" in res
+
+
+@pytest.mark.parametrize("meals", [0, 7])
+def test_nutrition_rejects_out_of_range_meals(meals):
+    res = compute_nutrition_targets(goal="maintain", weight_kg=75, meals_per_day=meals)
+    assert res["status"] == "error"
+
+
+def test_update_pantry_rejects_empty_items():
+    ctx = FakeToolContext()
+    res = update_pantry(items=[], action="add", tool_context=ctx)
+    assert res["status"] == "error"
+
+
+def test_grocery_rejects_empty_recipe_ids():
+    res = build_grocery_list(recipe_ids=[], pantry=[])
+    assert res["status"] == "error"
+
+
+def test_invalid_input_returns_dict_not_raises():
+    # Guided-error contract: bad input must come back as a dict, not an exception.
+    for res in (
+        compute_nutrition_targets(goal="bad-goal", weight_kg=75),
+        search_recipes(max_cost_usd=-1),
+        build_grocery_list(recipe_ids=[], pantry=[]),
+    ):
+        assert isinstance(res, dict) and res["status"] == "error"
+
+
+# --- output conforms to the declared result schemas ----------------------------
+
+
+def test_search_output_matches_schema():
+    res = search_recipes(tags=["vegetarian"])
+    SearchRecipesResult.model_validate(res)  # raises if the shape drifted
+
+
+def test_nutrition_output_matches_schema():
+    res = compute_nutrition_targets(goal="maintain", weight_kg=75)
+    NutritionTargets.model_validate(res)
+
+
+def test_pantry_outputs_match_schema():
+    ctx = FakeToolContext()
+    PantryState.model_validate(read_pantry(tool_context=ctx))
+    PantryState.model_validate(update_pantry(items=["rice"], action="add", tool_context=ctx))
+
+
+def test_grocery_output_matches_schema():
+    res = build_grocery_list(recipe_ids=["grilled-chicken-quinoa-bowl"], pantry=[])
+    GroceryList.model_validate(res)
+
+
+def test_error_output_matches_schema():
+    ErrorResult.model_validate(compute_nutrition_targets(goal="nope", weight_kg=75))
