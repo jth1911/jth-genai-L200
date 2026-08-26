@@ -7,8 +7,8 @@ synthetic ``LlmRequest`` — no LLM calls.
 
 from google.adk.models import LlmRequest
 from google.genai import types
-from tests.conftest import FakeCallbackContext
 
+from conftest import FakeCallbackContext
 from sous.memory import HISTORY_SUMMARY_KEY, compact_history
 
 

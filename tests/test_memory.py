@@ -8,8 +8,8 @@ exercises ADK's ``InMemoryMemoryService`` directly (keyword search) — no LLM c
 from google.adk.events import Event
 from google.adk.memory import InMemoryMemoryService, VertexAiMemoryBankService
 from google.genai import types
-from tests.conftest import FakeCallbackContext
 
+from conftest import FakeCallbackContext
 from sous.memory import remember_session
 from sous.runtime import APP_NAME, build_runner, get_memory_service
 
