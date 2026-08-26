@@ -56,8 +56,8 @@ def test_coordinator_has_context_and_memory_callbacks():
 
 def test_plan_workflow_is_sequential():
     assert isinstance(plan_workflow, SequentialAgent)
-    # gather -> recipe -> grocery -> presenter
-    assert len(plan_workflow.sub_agents) == 4
+    # gather -> recipe -> grocery -> finalize (HITL) -> presenter
+    assert len(plan_workflow.sub_agents) == 5
 
 
 def test_plan_workflow_starts_with_parallel_gather():
@@ -67,10 +67,12 @@ def test_plan_workflow_starts_with_parallel_gather():
     assert gather_names == {"nutrition_agent", "pantry_agent"}
 
 
-def test_recipe_then_grocery_then_presenter_order():
+def test_recipe_then_grocery_then_finalize_then_presenter_order():
     assert plan_workflow.sub_agents[1] is recipe_agent
     assert plan_workflow.sub_agents[2] is grocery_agent
-    assert plan_workflow.sub_agents[3] is presenter_agent
+    # HITL approval sits between the plan being built and it being presented.
+    assert plan_workflow.sub_agents[3].name == "finalize_agent"
+    assert plan_workflow.sub_agents[4] is presenter_agent
 
 
 def test_presenter_renders_prose_not_structured_json():
@@ -107,3 +109,39 @@ def test_all_agents_have_descriptions_for_delegation():
     # Descriptions are what the coordinator LLM uses to decide where to route.
     for agent in (nutrition_agent, pantry_agent, recipe_agent, grocery_agent, plan_workflow):
         assert agent.description
+
+
+# --- strategic model routing (issue #7) ---------------------------------------
+
+
+def test_model_tiers_route_by_task_complexity():
+    """Reasoning-heavy stages run on the smart tier; simple specialists on fast."""
+    from sous.agent import FAST_MODEL, SMART_MODEL
+
+    assert FAST_MODEL and SMART_MODEL and FAST_MODEL != SMART_MODEL
+    # Reasoning-heavy: recipe selection, grocery aggregation, coordinator routing.
+    assert recipe_agent.model == SMART_MODEL
+    assert grocery_agent.model == SMART_MODEL
+    assert root_agent.model == SMART_MODEL
+    # Simple specialists / rendering: cheaper, faster tier.
+    assert nutrition_agent.model == FAST_MODEL
+    assert pantry_agent.model == FAST_MODEL
+    assert presenter_agent.model == FAST_MODEL
+
+
+def test_model_tier_resolution_honours_env(monkeypatch):
+    from sous.agent import _tier_models
+
+    monkeypatch.setenv("SOUS_FAST_MODEL", "fast-x")
+    monkeypatch.setenv("SOUS_SMART_MODEL", "smart-y")
+    assert _tier_models() == ("fast-x", "smart-y")
+
+
+def test_sous_model_is_backcompat_override_for_both_tiers(monkeypatch):
+    # The pre-existing single SOUS_MODEL knob still works, pinning both tiers.
+    from sous.agent import _tier_models
+
+    monkeypatch.delenv("SOUS_FAST_MODEL", raising=False)
+    monkeypatch.delenv("SOUS_SMART_MODEL", raising=False)
+    monkeypatch.setenv("SOUS_MODEL", "legacy-model")
+    assert _tier_models() == ("legacy-model", "legacy-model")

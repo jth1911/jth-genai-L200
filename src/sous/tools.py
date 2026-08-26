@@ -211,6 +211,26 @@ def update_pantry(items: list[str], action: PantryAction, tool_context: ToolCont
     return PantryState(pantry=updated).model_dump()
 
 
+# --- plan finalization (human-in-the-loop) -------------------------------------
+
+
+def finalize_plan(summary: str) -> dict:
+    """Finalize the meal plan and grocery list once the user has approved them.
+
+    This is the last gate before the plan is presented. It carries no side effects
+    of its own — its purpose is to force an explicit user approval (the tool is
+    confirmation-gated), so the plan is only committed to when the user says yes.
+
+    Args:
+        summary: A short, human-readable summary of the plan and grocery list the
+            user is being asked to approve.
+
+    Returns:
+        dict: {"status": "approved", "summary": <summary>}.
+    """
+    return {"status": "approved", "summary": summary}
+
+
 # --- grocery list --------------------------------------------------------------
 
 

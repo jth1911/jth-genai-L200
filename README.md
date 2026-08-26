@@ -25,15 +25,26 @@ root_agent  (sous_coordinator, LlmAgent — routing + memory; manages pantry dir
         │     └─ pantry_agent     → state["pantry_summary"]
         ├─ recipe_agent    → state["recipe_plan"]   (validated JSON)
         ├─ grocery_agent   → state["grocery_list"]  (validated JSON)
+        ├─ finalize_agent  → HITL: user approves the plan
         └─ presenter_agent → friendly final reply
 ```
 
 Two orchestration styles in one system:
 
 - **LLM-driven delegation** — the coordinator decides when to hand off to the workflow.
-- **Deterministic workflow** — `Sequential(Parallel(nutrition, pantry), recipe, grocery)`
-  runs a fixed pipeline, each stage passing results to the next via session state
-  and `{key}` instruction templating.
+- **Deterministic workflow** — `Sequential(Parallel(nutrition, pantry), recipe, grocery,
+  finalize)` runs a fixed pipeline, each stage passing results to the next via session
+  state and `{key}` instruction templating.
+
+**Orchestration hardening:** agents are routed across two model tiers by task
+complexity — `SOUS_FAST_MODEL` (default `gemini-3.6-flash`) for the simple
+specialists and rendering, `SOUS_SMART_MODEL` (default `gemini-3.6-pro`) for the
+reasoning-heavy planning steps and the coordinator (`SOUS_MODEL` still pins both as
+a back-compat override). A `PolicyPlugin` (ADK `BasePlugin`, registered once on the
+`App`) enforces runtime guardrails, short-circuiting out-of-policy tool calls — e.g.
+oversized pantry writes. And two high-stakes actions require explicit user approval
+via ADK tool confirmation: **pantry writes** and the **final plan** (the
+`finalize_agent` gate before presentation).
 
 **Memory:** the pantry and dietary profile are stored under `user:`-scoped session
 state, so with the SQLite-backed `DatabaseSessionService` they persist across
