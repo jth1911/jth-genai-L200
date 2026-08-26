@@ -7,6 +7,7 @@ from sous.agent import (
     nutrition_agent,
     pantry_agent,
     plan_workflow,
+    presenter_agent,
     recipe_agent,
     root_agent,
 )
@@ -41,8 +42,8 @@ def test_coordinator_handles_pantry_directly():
 
 def test_plan_workflow_is_sequential():
     assert isinstance(plan_workflow, SequentialAgent)
-    # gather -> recipe -> grocery
-    assert len(plan_workflow.sub_agents) == 3
+    # gather -> recipe -> grocery -> presenter
+    assert len(plan_workflow.sub_agents) == 4
 
 
 def test_plan_workflow_starts_with_parallel_gather():
@@ -52,9 +53,17 @@ def test_plan_workflow_starts_with_parallel_gather():
     assert gather_names == {"nutrition_agent", "pantry_agent"}
 
 
-def test_recipe_then_grocery_order():
+def test_recipe_then_grocery_then_presenter_order():
     assert plan_workflow.sub_agents[1] is recipe_agent
     assert plan_workflow.sub_agents[2] is grocery_agent
+    assert plan_workflow.sub_agents[3] is presenter_agent
+
+
+def test_presenter_renders_prose_not_structured_json():
+    # The terminal stage stays free-text so the user gets a friendly reply, while
+    # the structured data lives in state (recipe_plan / grocery_list).
+    assert presenter_agent.output_schema is None
+    assert not presenter_agent.tools
 
 
 def test_each_specialist_has_its_tools():
@@ -70,6 +79,14 @@ def test_pipeline_agents_write_output_keys():
     assert pantry_agent.output_key
     assert recipe_agent.output_key
     assert grocery_agent.output_key
+
+
+def test_pipeline_agents_have_structured_output_schemas():
+    from sous.schemas import GroceryPlan, RecipePlan
+
+    # recipe/grocery stages emit validated JSON, not free text.
+    assert recipe_agent.output_schema is RecipePlan
+    assert grocery_agent.output_schema is GroceryPlan
 
 
 def test_all_agents_have_descriptions_for_delegation():

@@ -23,8 +23,9 @@ root_agent  (sous_coordinator, LlmAgent — routing + memory; manages pantry dir
         ├─ gather_step  (ParallelAgent)
         │     ├─ nutrition_agent  → state["nutrition_targets"]
         │     └─ pantry_agent     → state["pantry_summary"]
-        ├─ recipe_agent   → state["recipe_plan"]
-        └─ grocery_agent  → state["grocery_list"]
+        ├─ recipe_agent    → state["recipe_plan"]   (validated JSON)
+        ├─ grocery_agent   → state["grocery_list"]  (validated JSON)
+        └─ presenter_agent → friendly final reply
 ```
 
 Two orchestration styles in one system:
@@ -38,7 +39,11 @@ Two orchestration styles in one system:
 state, so with the SQLite-backed `DatabaseSessionService` they persist across
 separate conversations.
 
-See [`docs/architecture.md`](docs/architecture.md) for the full design.
+**Validation:** tool inputs and outputs, agent stage outputs, and the recipe
+dataset are all enforced with strict Pydantic schemas (`src/sous/schemas.py`) —
+`extra="forbid"`, bounded fields, and `Literal` enums surfaced to the model.
+Invalid input comes back as a guided `{"status": "error", ...}` message, never a
+traceback. See [`docs/architecture.md`](docs/architecture.md) for the full design.
 
 ## Setup
 
@@ -120,7 +125,8 @@ SOUS_SESSION_DB=postgresql://user:pass@host:5432/sous
 
 ```
 src/sous/
-  data.py                  # recipe dataset loader (dataclasses)
+  data.py                  # recipe dataset loader (validated Pydantic models)
+  schemas.py               # strict Pydantic schemas for tool + agent I/O
   tools.py                 # function tools: search, nutrition, pantry, grocery list
   agent.py                 # agents + orchestration (root_agent)
   runtime.py               # session service + Runner wiring

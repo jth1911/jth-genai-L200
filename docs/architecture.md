@@ -15,7 +15,8 @@ flowchart TD
         G[gather_step — ParallelAgent]
         R[recipe_agent]
         GR[grocery_agent]
-        G --> R --> GR
+        PR[presenter_agent]
+        G --> R --> GR --> PR
     end
 
     subgraph G [gather_step — ParallelAgent]
@@ -26,8 +27,9 @@ flowchart TD
 
     N -. "state: nutrition_targets" .-> R
     P -. "state: pantry_summary" .-> R
-    R -. "state: recipe_plan" .-> GR
-    GR --> OUT([Meal plan + grocery list])
+    R -. "state: recipe_plan (RecipePlan JSON)" .-> GR
+    GR -. "state: grocery_list (GroceryPlan JSON)" .-> PR
+    PR --> OUT([Friendly plan + grocery list])
 ```
 
 ## Design decisions
@@ -69,6 +71,33 @@ independently of the model.
 | `compute_nutrition_targets` | nutrition_agent | Daily kcal + macro targets for a goal |
 | `read_pantry` / `update_pantry` | coordinator, pantry_agent | Read/mutate `user:pantry` |
 | `build_grocery_list` | grocery_agent | Consolidate ingredients, subtract pantry |
+
+## Schemas & validation
+
+Contracts are enforced end-to-end with Pydantic (`src/sous/schemas.py`), not just
+type hints — this is the robustness layer on top of the descriptive tool docstrings.
+
+- **Tool inputs** — each tool validates its arguments against a strict input model
+  (`ConfigDict(extra="forbid")` + `Field` bounds, e.g. `weight_kg` in `(0, 500]`,
+  `meals_per_day` in `[1, 6]`). Constrained values use `Literal` types
+  (`goal`: lose/maintain/gain, `action`: add/remove) so ADK surfaces them to the
+  model as JSON-schema **enum** constraints. Validation failures are converted to
+  the guided `{"status": "error", "error_message": ...}` response — never a
+  raised traceback reaching the LLM.
+- **Tool outputs** — every tool builds a typed result model (`SearchRecipesResult`,
+  `NutritionTargets`, `PantryState`, `GroceryList`, `ErrorResult`) and returns
+  `.model_dump()`, so the shape can't silently drift.
+- **Agent output** — `recipe_agent` and `grocery_agent` set `output_schema`
+  (`RecipePlan` / `GroceryPlan`), emitting validated JSON into state instead of
+  free text. This uses Gemini 3.x's support for `output_schema` **with** tools in
+  a single request (on other models, use a tool-less formatter). A final
+  `presenter_agent` (no schema/tools) then renders that structured state as the
+  friendly, conversational reply — so the pipeline keeps machine-checked contracts
+  internally while the user still gets prose. The full pipeline is verified live in
+  `tests/test_eval.py`.
+- **Dataset** — `Recipe`/`Macros`/`Ingredient` are strict Pydantic models; tags
+  and allergens are checked against controlled vocabularies and macros/cost/time
+  are bounded, so a malformed dataset entry fails fast at load time.
 
 ## Observability & evaluation
 

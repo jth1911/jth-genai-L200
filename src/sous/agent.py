@@ -7,8 +7,9 @@ Architecture (see docs/architecture.md):
             ├─ gather_step  (ParallelAgent)
             │     ├─ nutrition_agent  → state["nutrition_targets"]
             │     └─ pantry_agent     → state["pantry_summary"]
-            ├─ recipe_agent   → state["recipe_plan"]
-            └─ grocery_agent  → state["grocery_list"]
+            ├─ recipe_agent    → state["recipe_plan"]   (validated RecipePlan JSON)
+            ├─ grocery_agent   → state["grocery_list"]  (validated GroceryPlan JSON)
+            └─ presenter_agent → renders the above as the friendly final reply
 
 This mixes both orchestration styles the project targets:
   * LLM-driven delegation — the coordinator decides when to hand off to the workflow.
@@ -30,6 +31,7 @@ import os
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 
+from .schemas import GroceryPlan, RecipePlan
 from .tools import (
     build_grocery_list,
     compute_nutrition_targets,
@@ -86,6 +88,10 @@ recipe_agent = LlmAgent(
         "Pantry: {pantry_summary?}"
     ),
     tools=[search_recipes],
+    # Structured output: the chosen plan is emitted as validated RecipePlan JSON
+    # rather than free text, so the grocery stage gets a clean contract. Relies on
+    # Gemini 3.x supporting output_schema alongside tools in one request.
+    output_schema=RecipePlan,
     output_key="recipe_plan",
 )
 
@@ -101,7 +107,25 @@ grocery_agent = LlmAgent(
         "Pantry: {pantry_summary?}"
     ),
     tools=[build_grocery_list],
+    # Structured output: the final list is validated GroceryPlan JSON.
+    output_schema=GroceryPlan,
     output_key="grocery_list",
+)
+
+presenter_agent = LlmAgent(
+    name="presenter_agent",
+    model=MODEL,
+    description="Presents the finished plan and grocery list to the user in friendly prose.",
+    instruction=(
+        "You are the concierge's voice. Turn the structured plan and grocery list "
+        "below into a warm, clear reply: first the chosen meals, then the shopping "
+        "list grouped sensibly. Keep it concise and friendly — do not output JSON.\n\n"
+        "Chosen plan (JSON): {recipe_plan?}\n"
+        "Grocery list (JSON): {grocery_list?}"
+    ),
+    # No output_schema/tools: the earlier stages hold the validated structured data
+    # in state; this stage just renders it conversationally as the final response.
+    output_key="final_message",
 )
 
 
@@ -117,9 +141,11 @@ plan_workflow = SequentialAgent(
     name="plan_workflow",
     description=(
         "End-to-end weekly meal planning pipeline: gather targets + pantry, choose "
-        "recipes, then build the grocery list."
+        "recipes, build the grocery list, then present it to the user."
     ),
-    sub_agents=[gather_step, recipe_agent, grocery_agent],
+    # recipe_agent and grocery_agent emit validated structured JSON into state;
+    # presenter_agent renders that state as the friendly final reply.
+    sub_agents=[gather_step, recipe_agent, grocery_agent, presenter_agent],
 )
 
 
