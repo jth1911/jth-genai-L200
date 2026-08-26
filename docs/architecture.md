@@ -15,8 +15,9 @@ flowchart TD
         G[gather_step — ParallelAgent]
         R[recipe_agent]
         GR[grocery_agent]
+        F[finalize_agent — HITL approval]
         PR[presenter_agent]
-        G --> R --> GR --> PR
+        G --> R --> GR --> F --> PR
     end
 
     subgraph G [gather_step — ParallelAgent]
@@ -28,7 +29,8 @@ flowchart TD
     N -. "state: nutrition_targets" .-> R
     P -. "state: pantry_summary" .-> R
     R -. "state: recipe_plan (RecipePlan JSON)" .-> GR
-    GR -. "state: grocery_list (GroceryPlan JSON)" .-> PR
+    GR -. "state: grocery_list (GroceryPlan JSON)" .-> F
+    F -. "user approves" .-> PR
     PR --> OUT([Friendly plan + grocery list])
 ```
 
@@ -76,6 +78,57 @@ Memory works at three layers, all wired on the coordinator (`src/sous/memory.py`
    `VertexAiMemoryBankService` (semantic search) when `SOUS_MEMORY_BACKEND=vertex`.
    Cross-session recall is proven in `tests/test_memory.py`.
 
+### Strategic model routing (issue #7)
+Agents are routed across two model tiers by task complexity rather than all sharing
+one model (`src/sous/agent.py`):
+
+- **`FAST_MODEL`** (default `gemini-3.6-flash`) — the simple specialists and final
+  rendering: `nutrition_agent`, `pantry_agent`, `finalize_agent`, `presenter_agent`.
+- **`SMART_MODEL`** (default `gemini-3.6-pro`) — the reasoning-heavy steps:
+  `recipe_agent` (meal selection), `grocery_agent` (list aggregation) and the
+  `sous_coordinator` (delegation/routing).
+
+Both tiers are env-overridable (`SOUS_FAST_MODEL` / `SOUS_SMART_MODEL`), and the
+pre-existing `SOUS_MODEL` still works as a single back-compat knob that pins both.
+The tier resolution is a pure function (`_tier_models`), unit-tested without a live
+model. (ADK's experimental `RoutedLlm` per-request router is not yet in the released
+SDK, so routing is expressed as static per-task tiers.)
+
+### Runtime guardrails (issue #7)
+Batch evaluation checks behaviour offline; a `PolicyPlugin` (`src/sous/plugins.py`)
+enforces policy **at runtime**. It subclasses ADK's `BasePlugin` and is registered
+once on the `App` in `build_runner`, so its `before_tool_callback` applies globally
+to every agent and tool — plugin callbacks also run *before* agent-local callbacks
+like `compact_history`. Returning a `dict` short-circuits the call (that dict becomes
+the tool result and the real tool never runs); returning `None` lets it proceed. The
+shipped policy caps a single `update_pantry` write at `MAX_PANTRY_ITEMS_PER_CALL`
+items, refusing runaway/hallucinated bulk writes before they touch state.
+
+### Human-in-the-loop (issue #7)
+Two high-stakes actions pause for explicit user approval via ADK tool confirmation
+(`FunctionTool(require_confirmation=True)`):
+
+1. **Pantry writes** — `update_pantry` mutates persisted `user:` state, so every
+   write is gated (`update_pantry_tool`). Reads (`read_pantry`) stay ungated.
+2. **Final plan approval** — a `finalize_agent` sits between `grocery_agent` and
+   `presenter_agent` and calls the confirmation-gated `finalize_plan`. The plan is
+   only presented once the user approves.
+
+When a gated tool is called, ADK pauses the run and emits an
+`adk_request_confirmation` request; the client resumes by returning a
+`FunctionResponse` carrying a `ToolConfirmation` with `confirmed=True/False`.
+
+A `SequentialAgent` doesn't branch, so a *pause* suspends the pipeline but an
+explicit *rejection* would otherwise fall through to the presenter. The finalize
+gate closes that gap with two callbacks: `finalize_agent.after_tool_callback`
+(`record_plan_approval`) records the approve/reject outcome to session state under
+`plan_approved`, and `presenter_agent.before_agent_callback` (`guard_presentation`)
+returns a short "tell me what to change" message — short-circuiting the presenter's
+model call — when the outcome is a rejection. It fails open (renders) when the gate
+was never reached, and closed only on an explicit `False`. The gating and the
+rejection halt are unit-tested headlessly (`tests/test_hitl.py`) across the pause,
+approve and reject paths.
+
 ### Why the classic workflow agents
 ADK 2.x flags `SequentialAgent`/`ParallelAgent` as deprecated in favour of the new
 graph `Workflow`. We keep the classic agents because (a) the new `Workflow` cannot
@@ -92,8 +145,9 @@ independently of the model.
 |------|-------|---------|
 | `search_recipes` | recipe_agent | Filter catalogue by tags, allergens, cost, cook time |
 | `compute_nutrition_targets` | nutrition_agent | Daily kcal + macro targets for a goal |
-| `read_pantry` / `update_pantry` | coordinator, pantry_agent | Read/mutate `user:pantry` |
+| `read_pantry` / `update_pantry` | coordinator, pantry_agent | Read/mutate `user:pantry` (writes are HITL-confirmed) |
 | `build_grocery_list` | grocery_agent | Consolidate ingredients, subtract pantry |
+| `finalize_plan` | finalize_agent | HITL approval gate before the plan is presented |
 | `load_memory` (ADK built-in) | coordinator | Recall facts from past sessions before re-asking |
 
 ## Schemas & validation

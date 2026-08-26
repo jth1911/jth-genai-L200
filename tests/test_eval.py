@@ -14,12 +14,55 @@ from pathlib import Path
 
 import pytest
 from google.adk.evaluation.agent_evaluator import AgentEvaluator
+from google.adk.flows.llm_flows.functions import (
+    REQUEST_CONFIRMATION_FUNCTION_CALL_NAME,
+)
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from sous.agent import plan_workflow, recipe_agent
 from sous.schemas import GroceryPlan, RecipePlan
+
+
+async def _run_autoconfirm(runner, *, user_id, session_id, text) -> str | None:
+    """Drive a run to completion, auto-approving any HITL confirmation gates.
+
+    The pipeline now pauses at ``finalize_agent`` (and would pause on any pantry
+    write) via ADK tool confirmation. In the UI a human approves; here we replay
+    the standard resume protocol — for each emitted ``adk_request_confirmation``
+    call we send back a matching ``FunctionResponse`` with ``confirmed=True`` and
+    continue until no confirmations remain.
+    """
+    content = types.Content(role="user", parts=[types.Part(text=text)])
+    final = None
+    # Bound the resume loop so a model that keeps re-requesting confirmation fails
+    # loudly instead of hanging (the pipeline has at most a couple of gates).
+    for _ in range(6):
+        pending: list[types.FunctionCall] = []
+        async for event in runner.run_async(
+            user_id=user_id, session_id=session_id, new_message=content
+        ):
+            for fc in event.get_function_calls() or []:
+                if fc.name == REQUEST_CONFIRMATION_FUNCTION_CALL_NAME:
+                    pending.append(fc)
+            if event.is_final_response() and event.content:
+                final = "".join(p.text or "" for p in event.content.parts)
+        if not pending:
+            return final
+        approvals = []
+        for fc in pending:
+            confirmation = dict(fc.args.get("toolConfirmation") or {})
+            confirmation["confirmed"] = True
+            approvals.append(
+                types.Part(
+                    function_response=types.FunctionResponse(
+                        id=fc.id, name=fc.name, response=confirmation
+                    )
+                )
+            )
+        content = types.Content(role="user", parts=approvals)
+    raise AssertionError("confirmation resume loop did not converge within 6 rounds")
 
 
 def _as_model(model_cls, value):
@@ -77,29 +120,19 @@ async def test_full_plan_workflow_end_to_end():
     """Drive the whole Sequential(Parallel(...)) pipeline end-to-end.
 
     Asserts the structured stages land validated data in state (RecipePlan +
-    GroceryPlan) and that the terminal presenter renders a friendly prose reply
-    rather than raw JSON.
+    GroceryPlan), that the HITL finalize gate is passed via an approval, and that
+    the terminal presenter renders a friendly prose reply rather than raw JSON.
     """
     service = InMemorySessionService()
     await service.create_session(app_name="wf", user_id="u", session_id="s")
     runner = Runner(agent=plan_workflow, app_name="wf", session_service=service)
 
-    final = None
-    async for event in runner.run_async(
+    final = await _run_autoconfirm(
+        runner,
         user_id="u",
         session_id="s",
-        new_message=types.Content(
-            role="user",
-            parts=[
-                types.Part(
-                    text="Plan 3 high-protein dinners to maintain my weight at 80kg, "
-                    "no shellfish."
-                )
-            ],
-        ),
-    ):
-        if event.is_final_response() and event.content:
-            final = "".join(p.text or "" for p in event.content.parts)
+        text="Plan 3 high-protein dinners to maintain my weight at 80kg, no shellfish.",
+    )
 
     session = await service.get_session(app_name="wf", user_id="u", session_id="s")
     # Structured stages produced schema-valid data in state.

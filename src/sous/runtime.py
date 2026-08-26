@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 
+from google.adk.apps import App
 from google.adk.memory import (
     BaseMemoryService,
     InMemoryMemoryService,
@@ -22,6 +23,7 @@ from google.adk.sessions import (
 )
 
 from .agent import root_agent
+from .plugins import PolicyPlugin
 
 APP_NAME = "sous"
 
@@ -86,10 +88,16 @@ def build_runner(
     session_service: BaseSessionService | None = None,
     memory_service: BaseMemoryService | None = None,
 ) -> Runner:
-    """Build a Runner for the Sous coordinator agent."""
+    """Build a Runner for the Sous coordinator agent.
+
+    The ``PolicyPlugin`` is registered on the ``App`` (not per-agent) so its
+    runtime guardrails apply globally to every agent and tool in the system
+    (issue #7). Plugins are attached via ``App`` rather than the deprecated
+    ``Runner(plugins=...)`` argument.
+    """
+    app = App(name=APP_NAME, root_agent=root_agent, plugins=[PolicyPlugin()])
     return Runner(
-        agent=root_agent,
-        app_name=APP_NAME,
+        app=app,
         session_service=session_service or get_session_service(),
         memory_service=memory_service or get_memory_service(),
     )
