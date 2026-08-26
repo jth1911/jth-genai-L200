@@ -179,8 +179,12 @@ type hints — this is the robustness layer on top of the descriptive tool docst
 
 ## Observability & evaluation
 
-Four layers, wired together in `src/sous/observability.py` and registered from
-`build_runner` (issue #9):
+Four layers, wired together in `src/sous/observability.py`. They're registered on a
+module-level `app` (`src/sous/runtime.py`, re-exported as `sous.app`), which ADK's
+agent loader discovers for `adk web`/`adk api_server` — it looks for `sous.app`
+before falling back to `root_agent`. So the plugins and the logging/telemetry config
+are active in the primary run path, not only when `build_runner` is called
+programmatically (issue #9):
 
 - **Tracing** — ADK emits OpenTelemetry spans for every agent hop and tool call,
   visible in the `adk web` Trace tab or exportable with `--trace_to_cloud`.

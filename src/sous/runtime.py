@@ -91,22 +91,40 @@ def build_runner(
 ) -> Runner:
     """Build a Runner for the Sous coordinator agent.
 
-    Plugins are registered on the ``App`` (not per-agent) so they apply globally to
-    every agent and tool: ``PolicyPlugin`` enforces runtime guardrails (issue #7)
-    and ``ObservabilityPlugin`` captures intent/outcome events (issue #9). Building
-    the runner also configures structured JSON logging (with PII redaction) and
-    turns off ADK's default capture of message content in spans, so PII stays out
-    of both logs and traces. Both configurators are idempotent.
+    Reuses the module-level :data:`app`, so a programmatic runner and the one
+    ``adk web``/``adk api_server`` build from discovering ``sous.app`` are wired
+    identically — same plugins, same observability config.
     """
-    configure_logging()
-    configure_telemetry()
-    app = App(
-        name=APP_NAME,
-        root_agent=root_agent,
-        plugins=[PolicyPlugin(), ObservabilityPlugin()],
-    )
     return Runner(
         app=app,
         session_service=session_service or get_session_service(),
         memory_service=memory_service or get_memory_service(),
     )
+
+
+def build_app() -> App:
+    """Construct the Sous ``App`` and configure observability as a side effect.
+
+    Plugins are registered on the ``App`` (not per-agent) so they apply globally to
+    every agent and tool: ``PolicyPlugin`` enforces runtime guardrails (issue #7)
+    and ``ObservabilityPlugin`` captures intent/outcome events (issue #9). Building
+    the app also configures structured JSON logging (with PII redaction) and turns
+    off ADK's default capture of message content in spans, so PII stays out of both
+    logs and traces. Both configurators are idempotent.
+    """
+    configure_logging()
+    configure_telemetry()
+    return App(
+        name=APP_NAME,
+        root_agent=root_agent,
+        plugins=[PolicyPlugin(), ObservabilityPlugin()],
+    )
+
+
+# Module-level ``App`` so ADK's agent loader discovers it: ``adk web src`` /
+# ``adk api_server src`` check for ``sous.app`` (an ``App``) *before* falling back
+# to ``root_agent``. Without this, the primary run path would build its own Runner
+# straight from ``root_agent`` — bypassing the plugins and the logging/telemetry
+# config, which would then only apply when ``build_runner`` is called by hand.
+# Building it at import also runs the observability configurators in every path.
+app = build_app()

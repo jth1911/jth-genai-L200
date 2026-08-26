@@ -156,3 +156,25 @@ def test_observability_plugin_registered_on_runner():
 
     runner = build_runner()
     assert any(isinstance(p, OP) for p in runner.plugin_manager.plugins)
+
+
+def test_module_level_app_is_discoverable_with_plugins():
+    # ADK's agent loader discovers `sous.app` (before `root_agent`) for
+    # `adk web`/`adk api_server`, so the plugins + observability config must live
+    # on a module-level App — not only inside build_runner.
+    from google.adk.apps import App
+
+    import sous
+
+    assert isinstance(sous.app, App)
+    plugin_names = {p.name for p in sous.app.plugins}
+    assert {"policy", "observability"} <= plugin_names
+
+
+def test_build_runner_reuses_the_module_app():
+    # Both run paths (adk web via sous.app, programmatic via build_runner) must be
+    # wired identically.
+    import sous
+    from sous.runtime import build_runner
+
+    assert build_runner().app is sous.app
