@@ -32,6 +32,7 @@ import os
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 from google.adk.tools import FunctionTool, load_memory
+from google.genai import types
 
 from .memory import compact_history, remember_session
 from .schemas import GroceryPlan, RecipePlan
@@ -84,6 +85,53 @@ update_pantry_tool = FunctionTool(update_pantry, require_confirmation=True)
 # finalize step must be approved by the user before the presenter renders it,
 # so the plan is never "confirmed" behind the user's back.
 finalize_plan_tool = FunctionTool(finalize_plan, require_confirmation=True)
+
+# State key recording the outcome of the finalize gate (True approved / False
+# rejected / absent if never reached).
+PLAN_APPROVED_KEY = "plan_approved"
+
+
+def record_plan_approval(*, tool, args, tool_context, tool_response):
+    """Persist the finalize gate's outcome so a rejection actually stops the plan.
+
+    Runs after the confirmation-gated ``finalize_plan`` tool. That tool yields one
+    of three results: a *pending-confirmation* notice (the run is paused — ignore
+    it), an explicit *rejection*, or the *approved* payload. A ``SequentialAgent``
+    does not branch, so recording the definitive outcome in session state is what
+    lets ``guard_presentation`` skip the presenter when the user says no. Returns
+    ``None`` to leave the tool response untouched.
+    """
+    if getattr(tool, "name", None) != "finalize_plan" or not isinstance(tool_response, dict):
+        return None
+    if tool_response.get("status") == "approved":
+        tool_context.state[PLAN_APPROVED_KEY] = True
+    elif "rejected" in str(tool_response.get("error", "")).lower():
+        tool_context.state[PLAN_APPROVED_KEY] = False
+    return None
+
+
+def guard_presentation(callback_context):
+    """Skip presenting the plan when the user rejected it at the finalize gate.
+
+    Returning ``Content`` from a ``before_agent_callback`` short-circuits the
+    presenter's model call, so an unapproved plan is never rendered (issue #7
+    review). An absent or approved outcome lets the presenter run normally, so the
+    guard fails open on the happy path and closed only on an explicit rejection.
+    """
+    if callback_context.state.get(PLAN_APPROVED_KEY) is False:
+        return types.Content(
+            role="model",
+            parts=[
+                types.Part(
+                    text=(
+                        "No problem — I won't finalise that plan. Tell me what you'd "
+                        "like to change (different meals, budget, cook time, …) and "
+                        "I'll put together a new one."
+                    )
+                )
+            ],
+        )
+    return None
 
 
 # --- specialist agents ---------------------------------------------------------
@@ -167,6 +215,8 @@ finalize_agent = LlmAgent(
     ),
     tools=[finalize_plan_tool],
     output_key="plan_approval",
+    # Record approve/reject into state so a rejection can stop the pipeline.
+    after_tool_callback=record_plan_approval,
 )
 
 presenter_agent = LlmAgent(
@@ -183,6 +233,8 @@ presenter_agent = LlmAgent(
     # No output_schema/tools: the earlier stages hold the validated structured data
     # in state; this stage just renders it conversationally as the final response.
     output_key="final_message",
+    # HITL: don't render a plan the user rejected at the finalize gate.
+    before_agent_callback=guard_presentation,
 )
 
 

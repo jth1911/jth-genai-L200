@@ -116,9 +116,18 @@ Two high-stakes actions pause for explicit user approval via ADK tool confirmati
 
 When a gated tool is called, ADK pauses the run and emits an
 `adk_request_confirmation` request; the client resumes by returning a
-`FunctionResponse` carrying a `ToolConfirmation` with `confirmed=True/False`. The
-gating is unit-tested headlessly (`tests/test_hitl.py`) across the pause, approve
-and reject paths.
+`FunctionResponse` carrying a `ToolConfirmation` with `confirmed=True/False`.
+
+A `SequentialAgent` doesn't branch, so a *pause* suspends the pipeline but an
+explicit *rejection* would otherwise fall through to the presenter. The finalize
+gate closes that gap with two callbacks: `finalize_agent.after_tool_callback`
+(`record_plan_approval`) records the approve/reject outcome to session state under
+`plan_approved`, and `presenter_agent.before_agent_callback` (`guard_presentation`)
+returns a short "tell me what to change" message — short-circuiting the presenter's
+model call — when the outcome is a rejection. It fails open (renders) when the gate
+was never reached, and closed only on an explicit `False`. The gating and the
+rejection halt are unit-tested headlessly (`tests/test_hitl.py`) across the pause,
+approve and reject paths.
 
 ### Why the classic workflow agents
 ADK 2.x flags `SequentialAgent`/`ParallelAgent` as deprecated in favour of the new

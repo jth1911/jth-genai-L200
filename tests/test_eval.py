@@ -36,7 +36,9 @@ async def _run_autoconfirm(runner, *, user_id, session_id, text) -> str | None:
     """
     content = types.Content(role="user", parts=[types.Part(text=text)])
     final = None
-    while True:
+    # Bound the resume loop so a model that keeps re-requesting confirmation fails
+    # loudly instead of hanging (the pipeline has at most a couple of gates).
+    for _ in range(6):
         pending: list[types.FunctionCall] = []
         async for event in runner.run_async(
             user_id=user_id, session_id=session_id, new_message=content
@@ -60,6 +62,7 @@ async def _run_autoconfirm(runner, *, user_id, session_id, text) -> str | None:
                 )
             )
         content = types.Content(role="user", parts=approvals)
+    raise AssertionError("confirmation resume loop did not converge within 6 rounds")
 
 
 def _as_model(model_cls, value):

@@ -9,10 +9,19 @@ Runner or a model:
 * confirmed=False      → the call is rejected and state is untouched.
 """
 
+from types import SimpleNamespace
+
 from google.adk.tools import FunctionTool
 from google.adk.tools.tool_confirmation import ToolConfirmation
 
-from sous.agent import finalize_plan_tool, update_pantry_tool
+from conftest import FakeCallbackContext, FakeToolContext
+from sous.agent import (
+    PLAN_APPROVED_KEY,
+    finalize_plan_tool,
+    guard_presentation,
+    record_plan_approval,
+    update_pantry_tool,
+)
 from sous.tools import PANTRY_KEY, update_pantry
 
 
@@ -114,3 +123,66 @@ async def test_finalize_plan_rejected():
         args={"summary": "3 dinners, 8 grocery items"}, tool_context=ctx
     )
     assert "rejected" in result["error"].lower()
+
+
+# --- rejection halts presentation (issue #7 review) ----------------------------
+
+
+def _finalize_tool():
+    return SimpleNamespace(name="finalize_plan")
+
+
+def test_record_plan_approval_marks_approved():
+    ctx = FakeToolContext()
+    record_plan_approval(
+        tool=_finalize_tool(),
+        args={},
+        tool_context=ctx,
+        tool_response={"status": "approved", "summary": "x"},
+    )
+    assert ctx.state[PLAN_APPROVED_KEY] is True
+
+
+def test_record_plan_approval_marks_rejected():
+    ctx = FakeToolContext()
+    record_plan_approval(
+        tool=_finalize_tool(),
+        args={},
+        tool_context=ctx,
+        tool_response={"error": "This tool call is rejected."},
+    )
+    assert ctx.state[PLAN_APPROVED_KEY] is False
+
+
+def test_record_plan_approval_ignores_pending_confirmation():
+    # The first pass (awaiting confirmation) must NOT record an outcome — the run
+    # is merely paused, not decided.
+    ctx = FakeToolContext()
+    record_plan_approval(
+        tool=_finalize_tool(),
+        args={},
+        tool_context=ctx,
+        tool_response={"error": "This tool call requires confirmation."},
+    )
+    assert PLAN_APPROVED_KEY not in ctx.state
+
+
+def test_guard_presentation_blocks_when_rejected():
+    ctx = FakeCallbackContext(state={PLAN_APPROVED_KEY: False})
+    skip = guard_presentation(ctx)
+    # Returning Content short-circuits the presenter — the rejected plan is not rendered.
+    assert skip is not None
+    assert "won't finalise" in skip.parts[0].text.lower()
+
+
+def test_guard_presentation_allows_when_approved_or_absent():
+    assert guard_presentation(FakeCallbackContext(state={PLAN_APPROVED_KEY: True})) is None
+    # Fail-open: if the gate was never reached, don't block the happy path.
+    assert guard_presentation(FakeCallbackContext(state={})) is None
+
+
+def test_presenter_and_finalize_wire_the_guard_callbacks():
+    from sous.agent import finalize_agent, presenter_agent
+
+    assert finalize_agent.after_tool_callback is record_plan_approval
+    assert presenter_agent.before_agent_callback is guard_presentation
