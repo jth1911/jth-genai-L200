@@ -118,10 +118,24 @@ uv run adk eval src/sous src/sous/eval/pantry_smoke.evalset.json
 
 ## Observability
 
-ADK emits OpenTelemetry traces of the full delegation path and every tool call.
-- `adk web` includes a **Trace** tab showing each agent hop and tool invocation.
-- Add `--trace_to_cloud` to `adk web`/`adk api_server` to export traces to Google
-  Cloud Trace when deployed.
+Tracing, structured logging, intent/outcome capture, and PII redaction, wired in
+`src/sous/observability.py` (issue #9):
+
+- **Tracing** — ADK emits OpenTelemetry traces of the full delegation path and every
+  tool call. `adk web` includes a **Trace** tab; add `--trace_to_cloud` to
+  `adk web`/`adk api_server` to export to Google Cloud Trace.
+- **Structured JSON logs** — all logging runs through loguru with a JSON sink;
+  `SOUS_LOG_LEVEL` sets the level.
+- **Intent / outcome** — an `ObservabilityPlugin` records a structured intent event
+  per user message and outcome events for each tool result (including the HITL
+  approve/reject and guardrail decisions) and the finished run, correlated by
+  invocation id.
+- **PII redaction** — one policy masks health-adjacent personal data (weight,
+  allergens, goal, pantry, raw user text) in **both** the JSON logs (a global loguru
+  patcher) and the traces. ADK captures tool args/responses in span attributes
+  **by default**; `configure_telemetry()` defaults
+  `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` so that content — and its PII — never
+  enters the spans. Set it to `true` to opt back in.
 
 ## Deploy
 

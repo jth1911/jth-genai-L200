@@ -16,13 +16,11 @@ memory growing:
 
 from __future__ import annotations
 
-import logging
 import os
 from collections.abc import Callable, Sequence
 
 from google.genai import types
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # Session-scoped (no ``user:`` prefix) so the rolling summary of *this* conversation
 # does not leak into other sessions the way the durable profile/pantry does.
@@ -118,7 +116,9 @@ def compact_history(
         try:
             summary = summarize_fn(dropped, prior)
         except Exception:  # a summariser failure must never break the turn
-            logger.warning("history summariser failed; falling back to plain trim", exc_info=True)
+            logger.opt(exception=True).warning(
+                "history summariser failed; falling back to plain trim"
+            )
             summary = None
         if summary:
             callback_context.state[HISTORY_SUMMARY_KEY] = summary
@@ -159,5 +159,5 @@ async def remember_session(callback_context) -> None:
         # No memory service configured (e.g. local run without one) — skip quietly.
         logger.debug("no memory service available; skipping session ingestion")
     except Exception:
-        logger.warning("failed to ingest session into memory", exc_info=True)
+        logger.opt(exception=True).warning("failed to ingest session into memory")
     return None

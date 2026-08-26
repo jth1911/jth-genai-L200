@@ -23,6 +23,7 @@ from google.adk.sessions import (
 )
 
 from .agent import root_agent
+from .observability import ObservabilityPlugin, configure_logging, configure_telemetry
 from .plugins import PolicyPlugin
 
 APP_NAME = "sous"
@@ -90,12 +91,20 @@ def build_runner(
 ) -> Runner:
     """Build a Runner for the Sous coordinator agent.
 
-    The ``PolicyPlugin`` is registered on the ``App`` (not per-agent) so its
-    runtime guardrails apply globally to every agent and tool in the system
-    (issue #7). Plugins are attached via ``App`` rather than the deprecated
-    ``Runner(plugins=...)`` argument.
+    Plugins are registered on the ``App`` (not per-agent) so they apply globally to
+    every agent and tool: ``PolicyPlugin`` enforces runtime guardrails (issue #7)
+    and ``ObservabilityPlugin`` captures intent/outcome events (issue #9). Building
+    the runner also configures structured JSON logging (with PII redaction) and
+    turns off ADK's default capture of message content in spans, so PII stays out
+    of both logs and traces. Both configurators are idempotent.
     """
-    app = App(name=APP_NAME, root_agent=root_agent, plugins=[PolicyPlugin()])
+    configure_logging()
+    configure_telemetry()
+    app = App(
+        name=APP_NAME,
+        root_agent=root_agent,
+        plugins=[PolicyPlugin(), ObservabilityPlugin()],
+    )
     return Runner(
         app=app,
         session_service=session_service or get_session_service(),

@@ -179,7 +179,31 @@ type hints — this is the robustness layer on top of the descriptive tool docst
 
 ## Observability & evaluation
 
+Four layers, wired together in `src/sous/observability.py` and registered from
+`build_runner` (issue #9):
+
 - **Tracing** — ADK emits OpenTelemetry spans for every agent hop and tool call,
   visible in the `adk web` Trace tab or exportable with `--trace_to_cloud`.
+- **Structured JSON logging** — all app logging goes through loguru with a JSON sink
+  (`serialize=True`); `SOUS_LOG_LEVEL` sets the level. Events carry structured
+  context via `logger.bind(...)`, so they're machine-parseable by a log aggregator.
+- **Intent / outcome capture** — an `ObservabilityPlugin` (`BasePlugin`, registered
+  on the `App` alongside `PolicyPlugin`) emits a structured **intent** event
+  (`on_user_message_callback`), **tool outcome** events (`after_tool_callback` — this
+  also captures the HITL approve/reject and the guardrail block via the tool's
+  status), and a **run outcome** event (`after_run_callback`), all correlated by
+  invocation id. The same run is thus both traced (OTel) and summarised (logs).
+- **PII redaction** — one policy (`PII_KEYS` + `redact`) defined once and applied in
+  both places PII could escape:
+  - *Logs* — a global loguru patcher (`logger.configure(patcher=...)`) masks any
+    value under a PII key (weight, allergens, goal, pantry, raw user text), wherever
+    it appears in a record's `extra` — including nested tool args/results. Redaction
+    can't be forgotten at a call site.
+  - *Traces* — ADK captures message content in some span attributes
+    (`gcp.vertex.agent.tool_call_args` / `tool_response`) **by default**, which would
+    include those same tool args. `configure_telemetry()` defaults
+    `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` (prevention at source; still opt-in
+    to re-enable), so PII never enters the spans in the first place — cleaner than
+    scrubbing immutable, already-recorded spans.
 - **Evals** — `src/sous/eval/pantry_smoke.evalset.json` with thresholds in
   `test_config.json`, wired into pytest (`-m llm`) and runnable via `adk eval`.
