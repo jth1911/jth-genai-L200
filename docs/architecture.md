@@ -15,7 +15,8 @@ flowchart TD
         G[gather_step — ParallelAgent]
         R[recipe_agent]
         GR[grocery_agent]
-        G --> R --> GR
+        PR[presenter_agent]
+        G --> R --> GR --> PR
     end
 
     subgraph G [gather_step — ParallelAgent]
@@ -26,8 +27,9 @@ flowchart TD
 
     N -. "state: nutrition_targets" .-> R
     P -. "state: pantry_summary" .-> R
-    R -. "state: recipe_plan" .-> GR
-    GR --> OUT([Meal plan + grocery list])
+    R -. "state: recipe_plan (RecipePlan JSON)" .-> GR
+    GR -. "state: grocery_list (GroceryPlan JSON)" .-> PR
+    PR --> OUT([Friendly plan + grocery list])
 ```
 
 ## Design decisions
@@ -86,10 +88,13 @@ type hints — this is the robustness layer on top of the descriptive tool docst
   `NutritionTargets`, `PantryState`, `GroceryList`, `ErrorResult`) and returns
   `.model_dump()`, so the shape can't silently drift.
 - **Agent output** — `recipe_agent` and `grocery_agent` set `output_schema`
-  (`RecipePlan` / `GroceryPlan`), emitting validated JSON instead of free text.
-  This uses Gemini 3.x's support for `output_schema` **with** tools in a single
-  request; on models without it, ADK's fallback is a dedicated tool-less formatter
-  sub-agent. Verified live in `tests/test_eval.py`.
+  (`RecipePlan` / `GroceryPlan`), emitting validated JSON into state instead of
+  free text. This uses Gemini 3.x's support for `output_schema` **with** tools in
+  a single request (on other models, use a tool-less formatter). A final
+  `presenter_agent` (no schema/tools) then renders that structured state as the
+  friendly, conversational reply — so the pipeline keeps machine-checked contracts
+  internally while the user still gets prose. The full pipeline is verified live in
+  `tests/test_eval.py`.
 - **Dataset** — `Recipe`/`Macros`/`Ingredient` are strict Pydantic models; tags
   and allergens are checked against controlled vocabularies and macros/cost/time
   are bounded, so a malformed dataset entry fails fast at load time.

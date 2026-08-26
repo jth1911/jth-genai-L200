@@ -23,8 +23,9 @@ root_agent  (sous_coordinator, LlmAgent — routing + memory; manages pantry dir
         ├─ gather_step  (ParallelAgent)
         │     ├─ nutrition_agent  → state["nutrition_targets"]
         │     └─ pantry_agent     → state["pantry_summary"]
-        ├─ recipe_agent   → state["recipe_plan"]
-        └─ grocery_agent  → state["grocery_list"]
+        ├─ recipe_agent    → state["recipe_plan"]   (validated JSON)
+        ├─ grocery_agent   → state["grocery_list"]  (validated JSON)
+        └─ presenter_agent → friendly final reply
 ```
 
 Two orchestration styles in one system:
