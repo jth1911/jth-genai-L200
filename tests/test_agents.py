@@ -72,6 +72,14 @@ def test_pipeline_agents_write_output_keys():
     assert grocery_agent.output_key
 
 
+def test_pipeline_agents_have_structured_output_schemas():
+    from sous.schemas import GroceryPlan, RecipePlan
+
+    # recipe/grocery stages emit validated JSON, not free text.
+    assert recipe_agent.output_schema is RecipePlan
+    assert grocery_agent.output_schema is GroceryPlan
+
+
 def test_all_agents_have_descriptions_for_delegation():
     # Descriptions are what the coordinator LLM uses to decide where to route.
     for agent in (nutrition_agent, pantry_agent, recipe_agent, grocery_agent, plan_workflow):

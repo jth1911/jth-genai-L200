@@ -14,6 +14,12 @@ from pathlib import Path
 
 import pytest
 from google.adk.evaluation.agent_evaluator import AgentEvaluator
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
+
+from sous.agent import recipe_agent
+from sous.schemas import RecipePlan
 
 EVAL_DIR = Path(__file__).resolve().parents[1] / "src" / "sous" / "eval"
 
@@ -32,3 +38,29 @@ async def test_pantry_smoke_evalset():
         eval_dataset_file_path_or_dir=str(EVAL_DIR / "pantry_smoke.evalset.json"),
         num_runs=2,
     )
+
+
+async def test_recipe_agent_emits_validated_structured_output():
+    """The recipe stage must call its tool AND return schema-valid RecipePlan JSON.
+
+    This exercises the Gemini-3.x `output_schema` + tools capability end-to-end.
+    """
+    service = InMemorySessionService()
+    await service.create_session(app_name="probe", user_id="u", session_id="s")
+    runner = Runner(agent=recipe_agent, app_name="probe", session_service=service)
+
+    final = None
+    async for event in runner.run_async(
+        user_id="u",
+        session_id="s",
+        new_message=types.Content(
+            role="user",
+            parts=[types.Part(text="Plan 2 high-protein dinners for the week.")],
+        ),
+    ):
+        if event.is_final_response() and event.content:
+            final = "".join(p.text or "" for p in event.content.parts)
+
+    assert final, "no final response produced"
+    plan = RecipePlan.model_validate_json(final)  # raises if not schema-valid JSON
+    assert plan.meals, "expected at least one planned meal"

@@ -30,6 +30,7 @@ import os
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 
+from .schemas import GroceryPlan, RecipePlan
 from .tools import (
     build_grocery_list,
     compute_nutrition_targets,
@@ -86,6 +87,10 @@ recipe_agent = LlmAgent(
         "Pantry: {pantry_summary?}"
     ),
     tools=[search_recipes],
+    # Structured output: the chosen plan is emitted as validated RecipePlan JSON
+    # rather than free text, so the grocery stage gets a clean contract. Relies on
+    # Gemini 3.x supporting output_schema alongside tools in one request.
+    output_schema=RecipePlan,
     output_key="recipe_plan",
 )
 
@@ -101,6 +106,8 @@ grocery_agent = LlmAgent(
         "Pantry: {pantry_summary?}"
     ),
     tools=[build_grocery_list],
+    # Structured output: the final list is validated GroceryPlan JSON.
+    output_schema=GroceryPlan,
     output_key="grocery_list",
 )
 
