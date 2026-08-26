@@ -38,7 +38,7 @@ Two orchestration styles in one system:
 
 **Orchestration hardening:** agents are routed across two model tiers by task
 complexity — `SOUS_FAST_MODEL` (default `gemini-3.6-flash`) for the simple
-specialists and rendering, `SOUS_SMART_MODEL` (default `gemini-3.6-pro`) for the
+specialists and rendering, `SOUS_SMART_MODEL` (default `gemini-pro-latest`) for the
 reasoning-heavy planning steps and the coordinator (`SOUS_MODEL` still pins both as
 a back-compat override). A `PolicyPlugin` (ADK `BasePlugin`, registered once on the
 `App`) enforces runtime guardrails, short-circuiting out-of-policy tool calls — e.g.

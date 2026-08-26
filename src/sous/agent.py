@@ -53,7 +53,10 @@ from .tools import (
 # env-overridable so the same code runs against Vertex or another model without
 # edits. `SOUS_MODEL` is kept as a back-compat single knob that pins both tiers.
 _DEFAULT_FAST_MODEL = "gemini-3.6-flash"
-_DEFAULT_SMART_MODEL = "gemini-3.6-pro"
+# `gemini-pro-latest` tracks the current production Pro model (there is no
+# 3.6-pro; the 3.6/3.7 line is flash-only), so the smart tier stays valid without
+# pinning to a preview. Override with SOUS_SMART_MODEL as needed.
+_DEFAULT_SMART_MODEL = "gemini-pro-latest"
 
 
 def _tier_models() -> tuple[str, str]:

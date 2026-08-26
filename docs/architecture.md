@@ -84,7 +84,7 @@ one model (`src/sous/agent.py`):
 
 - **`FAST_MODEL`** (default `gemini-3.6-flash`) — the simple specialists and final
   rendering: `nutrition_agent`, `pantry_agent`, `finalize_agent`, `presenter_agent`.
-- **`SMART_MODEL`** (default `gemini-3.6-pro`) — the reasoning-heavy steps:
+- **`SMART_MODEL`** (default `gemini-pro-latest`) — the reasoning-heavy steps:
   `recipe_agent` (meal selection), `grocery_agent` (list aggregation) and the
   `sous_coordinator` (delegation/routing).
 
