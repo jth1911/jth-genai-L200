@@ -21,6 +21,17 @@ def _history(n: int) -> list[types.Content]:
     return out
 
 
+def _text(role: str, text: str) -> types.Content:
+    return types.Content(role=role, parts=[types.Part(text=text)])
+
+
+def _fn_response(name: str) -> types.Content:
+    return types.Content(
+        role="user",
+        parts=[types.Part(function_response=types.FunctionResponse(name=name, response={}))],
+    )
+
+
 def test_short_history_is_left_untouched():
     req = LlmRequest(contents=_history(4))
     ctx = FakeCallbackContext()
@@ -127,6 +138,64 @@ def test_summarizer_failure_falls_back_to_sliding_window():
     assert result is None
     assert len(req.contents) == 12
     assert req.contents[-1].parts[0].text == "turn 29"
+
+
+def test_orphan_function_response_is_dropped_from_window_start():
+    # Window boundary lands right after a function_call: the kept slice would start
+    # with an orphaned function_response, which Gemini rejects. It must be dropped.
+    contents = _history(6) + [
+        _fn_response("read_pantry"),  # orphan — its call is in the dropped prefix
+        _text("user", "what can I cook?"),
+        _text("model", "let's see"),
+        _text("user", "thanks"),
+    ]
+    req = LlmRequest(contents=contents)
+    ctx = FakeCallbackContext()
+
+    compact_history(ctx, req, window=4, summarize_fn=None)
+
+    # The leading orphan response is gone; history opens on a real user turn.
+    assert req.contents[0].parts[0].text == "what can I cook?"
+    assert all(
+        part.function_response is None
+        for part in req.contents[0].parts
+    )
+
+
+def test_pure_trim_opens_on_a_user_turn():
+    # If the raw window would start on a model turn, drop it so the model gets a
+    # user-first history.
+    contents = _history(6) + [
+        _text("model", "leading model turn"),
+        _text("user", "hi"),
+        _text("model", "hello"),
+        _text("user", "plan please"),
+    ]
+    req = LlmRequest(contents=contents)
+    ctx = FakeCallbackContext()
+
+    compact_history(ctx, req, window=4, summarize_fn=None)
+
+    assert req.contents[0].role == "user"
+    assert req.contents[0].parts[0].text == "hi"
+
+
+def test_summary_mode_also_strips_orphan_function_response():
+    contents = _history(6) + [
+        _fn_response("update_pantry"),  # orphan at the window start
+        _text("user", "add eggs"),
+        _text("model", "done"),
+        _text("user", "great"),
+    ]
+    req = LlmRequest(contents=contents)
+    ctx = FakeCallbackContext()
+
+    compact_history(ctx, req, window=4, summarize_fn=lambda dropped, prior: "SUMMARY")
+
+    # Summary is first (provides the user start); the orphan response is stripped.
+    assert "SUMMARY" in req.contents[0].parts[0].text
+    assert req.contents[1].parts[0].text == "add eggs"
+    assert all(part.function_response is None for part in req.contents[1].parts)
 
 
 def test_window_defaults_from_env(monkeypatch):

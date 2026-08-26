@@ -61,9 +61,11 @@ Memory works at three layers, all wired on the coordinator (`src/sous/memory.py`
    dropped prefix is folded into a running summary stored under a *session-scoped*
    key (`history_summary`) and prepended as one synthetic turn. This bounds the token
    footprint of long chats. It only rewrites `llm_request.contents` — the transient
-   conversation — so durable `user:` state is never affected. The summariser is
-   injectable, so the trigger/threshold logic is unit-tested without a live LLM
-   (`tests/test_compaction.py`).
+   conversation — so durable `user:` state is never affected. The trimmed window is
+   sanitised to a boundary the model accepts: a leading orphaned `function_response`
+   (whose `function_call` was dropped) is removed, and a pure trim opens on a `user`
+   turn. The summariser is injectable, so the trigger/threshold logic is unit-tested
+   without a live LLM (`tests/test_compaction.py`).
 
 3. **Long-term memory** (`after_agent_callback` → `remember_session`). After the
    user-facing reply is produced, the finished turn is ingested into a `MemoryService`

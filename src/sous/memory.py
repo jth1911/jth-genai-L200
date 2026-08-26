@@ -55,6 +55,36 @@ def _summary_content(text: str) -> types.Content:
     )
 
 
+def _has_function_response(content: types.Content) -> bool:
+    return any(getattr(p, "function_response", None) is not None for p in (content.parts or []))
+
+
+def _clean_window_start(
+    kept: list[types.Content], *, require_user_start: bool
+) -> list[types.Content]:
+    """Advance the window start to a boundary the model will accept.
+
+    Slicing the history at an arbitrary index can leave the window starting on a
+    ``function_response`` whose originating ``function_call`` was trimmed away —
+    Gemini rejects that ("function response without preceding function call"). Drop
+    such orphaned responses; when ``require_user_start`` is set (pure trim, no summary
+    prepended), also drop any leading ``model`` turns so the history opens on a user
+    turn. Dropping a leading ``model`` function-call turn orphans its response, which
+    the loop then drops in turn — so cascades resolve naturally.
+    """
+    start = 0
+    while start < len(kept):
+        content = kept[start]
+        if _has_function_response(content):
+            start += 1
+            continue
+        if require_user_start and content.role != "user":
+            start += 1
+            continue
+        break
+    return kept[start:]
+
+
 def compact_history(
     callback_context,
     llm_request,
@@ -92,11 +122,15 @@ def compact_history(
             summary = None
         if summary:
             callback_context.state[HISTORY_SUMMARY_KEY] = summary
-            llm_request.contents = [_summary_content(summary), *keep]
+            # The prepended summary provides the user-role start, so we only need to
+            # strip orphaned function responses from the kept window.
+            body = _clean_window_start(keep, require_user_start=False)
+            llm_request.contents = [_summary_content(summary), *(body or keep)]
             return None
 
-    # Pure sliding window.
-    llm_request.contents = keep
+    # Pure sliding window: also ensure the history opens on a user turn. Fall back to
+    # the raw window if sanitising somehow empties it (better than no contents at all).
+    llm_request.contents = _clean_window_start(keep, require_user_start=True) or keep
     return None
 
 
